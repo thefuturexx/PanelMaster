@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PanelMaster - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        html { scroll-behavior: smooth; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .glass-dark { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(16px); }
+        .h-green { color: #10b981; } .h-blue { color: #3b82f6; } .h-yellow { color: #eab308; } .h-orange { color: #f97316; } .h-red { color: #ef4444; }
+        .bg-aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 9999px; filter: blur(50px); opacity: .35; animation: drift 18s ease-in-out infinite; }
+        .blob-a { width: 380px; height: 380px; background: #818cf8; top: -100px; left: -90px; }
+        .blob-b { width: 460px; height: 460px; background: #06b6d4; bottom: -170px; right: -120px; animation-delay: -4s; }
+        .blob-c { width: 300px; height: 300px; background: #c084fc; top: 45%; left: 52%; animation-delay: -8s; }
+        .reveal-up { animation: rise .55s cubic-bezier(.2,.65,.24,1) both; }
+        .card-fx { transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+        .card-fx:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 20px 45px rgba(2, 8, 23, .12); }
+        .btn-pop { transition: transform .2s ease, box-shadow .2s ease; }
+        .btn-pop:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(79, 70, 229, .28); }
+        @keyframes drift { 0%,100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(22px, -18px) scale(1.06); } }
+        @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-[#f4f7fb] font-sans pb-16 text-slate-800">
+<div class="bg-aurora">
+    <div class="blob blob-a"></div>
+    <div class="blob blob-b"></div>
+    <div class="blob blob-c"></div>
+</div>
+
+<nav class="glass border-b border-slate-200/60 sticky top-0 z-40 mb-10 shadow-sm">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div class="text-2xl font-black tracking-tight flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200"><i class="fa-solid fa-bolt"></i></div>
+            <span class="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500">PanelMaster</span>
+        </div>
+        <div class="relative dropdown-container">
+            <button onclick="toggleDropdown()" class="flex items-center gap-3 bg-white border border-slate-200 hover:border-indigo-300 px-4 py-2 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                <div class="flex flex-col text-right"><span class="text-xs font-black text-slate-800">Admin</span><span class="text-[10px] font-bold text-emerald-500">Online</span></div>
+                <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center"><i class="fa-solid fa-user-astronaut"></i></div>
+                <i class="fa-solid fa-chevron-down text-xs text-slate-400 ml-1"></i>
+            </button>
+            <div id="topMenu" class="hidden absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden transform origin-top-right transition-all">
+                <div class="p-2 space-y-1">
+                    <button onclick="document.getElementById('globalHealthModal').classList.remove('hidden'); toggleDropdown();" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors flex items-center gap-3"><i class="fa-solid fa-heart-pulse w-5 text-center text-red-400"></i> System Health {% if sick_count > 0 %}<span class="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full ml-auto animate-pulse">{{ sick_count }}</span>{% endif %}</button>
+                    <button onclick="document.getElementById('backupsModal').classList.remove('hidden'); toggleDropdown();" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors flex items-center gap-3"><i class="fa-solid fa-database w-5 text-center text-emerald-400"></i> Backups Center</button>
+                    <button onclick="openHistoryModal(); toggleDropdown();" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors flex items-center gap-3"><i class="fa-solid fa-clock-rotate-left w-5 text-center text-cyan-500"></i> Action History</button>
+                    <button onclick="openSettingsModal(); toggleDropdown();" class="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors flex items-center gap-3"><i class="fa-solid fa-gear w-5 text-center text-slate-400"></i> Bot Settings</button>
+                    <div class="h-px bg-slate-100 my-1"></div>
+                    <a href="/logout" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-3"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i> Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6 bg-white/90 p-8 rounded-3xl shadow-sm border border-slate-100 reveal-up">
+        <div><h2 class="text-xs font-black text-indigo-500 uppercase tracking-widest mb-2"><i class="fa-solid fa-chart-pie mr-1"></i> Dashboard</h2><h1 class="text-3xl font-black tracking-tight text-slate-900">Manage Network</h1></div>
+        <div class="flex flex-wrap gap-3 w-full md:w-auto">
+            <button onclick="document.getElementById('addAutoGroupModal').classList.remove('hidden')" class="btn-pop flex-1 md:flex-none bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-6 py-3.5 rounded-2xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 flex items-center justify-center"><i class="fa-solid fa-layer-group mr-2"></i> Add Auto Node</button>
+            <button onclick="document.getElementById('addNodeModal').classList.remove('hidden')" class="btn-pop flex-1 md:flex-none bg-white text-indigo-600 border border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm transition-all flex items-center justify-center"><i class="fa-solid fa-plus mr-2"></i> Add Custom Node</button>
+        </div>
+    </div>
+
+    <div class="mb-6 bg-white/90 p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-2 md:items-center">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Global Search</div>
+        <input id="globalSearchInput" type="text" placeholder="Search keys, nodes, groups..." onkeydown="if(event.key==='Enter'){openSearchResults();}" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
+        <button onclick="openSearchResults()" class="btn-pop bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-black">
+            <i class="fa-solid fa-magnifying-glass mr-1.5"></i> Search
+        </button>
+    </div>
+
+    <div class="mb-6 bg-white/90 rounded-2xl border border-slate-100 p-2 inline-flex gap-2 shadow-sm">
+        <button id="sectionTabAuto" onclick="switchDashboardSection('auto')" class="px-4 py-2 rounded-xl text-xs font-black bg-purple-600 text-white"><i class="fa-solid fa-network-wired mr-1"></i> Auto Node Groups</button>
+        <button id="sectionTabCustom" onclick="switchDashboardSection('custom')" class="px-4 py-2 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-100"><i class="fa-solid fa-server mr-1"></i> Custom Nodes</button>
+    </div>
+
+    <div id="sectionAuto" class="mb-12">
+        <h2 class="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><i class="fa-solid fa-network-wired text-purple-500"></i> Auto Nodes (Groups)</h2>
+        {% if groups %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {% for g in groups %}
+            <div class="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 rounded-3xl shadow-lg shadow-purple-200/50 hover:shadow-xl hover:shadow-purple-300/50 transition-all duration-300 group overflow-hidden flex flex-col text-white border border-white/10 hover:-translate-y-1 card-fx reveal-up">
+                <div class="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                <form action="/delete_auto_group/{{ g.id }}" method="POST" onsubmit="return requestTypedDangerConfirm(event, this, 'Auto Group', '{{ g.id }}', 'Delete this auto group and its server mapping.');" class="absolute top-5 right-5 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"><button type="submit" class="bg-black/20 hover:bg-red-500/80 backdrop-blur-md p-2.5 rounded-xl transition-colors" title="Delete Group"><i class="fa-solid fa-trash-can text-sm"></i></button></form>
+                <a href="/group/{{ g.id }}" class="block p-7 flex-1 flex flex-col relative z-10">
+                    <div class="flex justify-between items-start mb-5"><div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl border border-white/20 shadow-inner"><i class="fa-solid fa-network-wired"></i></div><div class="text-right mr-10 md:group-hover:hidden transition-opacity"><span class="bg-black/20 backdrop-blur-md border border-white/10 px-3 py-1 rounded-lg text-[10px] font-black uppercase font-mono shadow-sm">{{ g.id }}</span></div></div>
+                    <h2 class="text-2xl font-black mb-2 truncate pr-8">{{ g.name }}</h2>
+                    <div class="flex items-center gap-4 text-xs font-bold text-white/80 mb-6"><span class="flex items-center gap-1.5"><i class="fa-solid fa-server opacity-70"></i> {{ g.node_count }} Servers</span><span class="w-1 h-1 rounded-full bg-white/40"></span><span class="flex items-center gap-1.5"><i class="fa-solid fa-key opacity-70"></i> {{ g.limit }} Max</span></div>
+                    <div class="mt-auto bg-black/10 backdrop-blur-sm rounded-2xl p-5 border border-white/10 flex justify-between items-center"><div><p class="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Traffic Used</p><p class="text-xl font-black">{{ "%.2f"|format(g.used_gb) }} GB</p></div><div class="w-px h-8 bg-white/10"></div><div><p class="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Active</p><p class="text-xl font-black text-emerald-300">{{ g.active_keys }}</p></div><div class="w-px h-8 bg-white/10"></div><div class="text-right"><p class="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Total Keys</p><p class="text-xl font-black">{{ g.total_keys }}</p></div></div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white rounded-3xl p-10 border border-slate-200 border-dashed text-center"><div class="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center text-2xl mx-auto mb-4"><i class="fa-solid fa-layer-group"></i></div><p class="text-sm font-bold text-slate-500">No auto nodes created yet.</p></div>
+        {% endif %}
+    </div>
+
+    <div id="sectionCustom">
+        <h2 class="text-lg font-black text-slate-800 mb-6 flex items-center gap-2"><i class="fa-solid fa-server text-blue-500"></i> Custom Nodes</h2>
+        {% if nodes %}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {% for node in nodes %}
+            <div class="bg-white/90 rounded-3xl p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-200 transition-all relative group flex flex-col h-full hover:-translate-y-1 card-fx reveal-up">
+                <div class="flex justify-between items-start mb-5">
+                    <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shadow-inner border border-blue-100/50"><i class="fa-solid fa-server"></i></div>
+                    <div class="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button type="button" onclick="openTbModal('{{ node.id }}', '{{ node.limit_tb }}')" class="text-blue-400 hover:text-blue-600 bg-blue-50 hover:bg-blue-100 p-2.5 rounded-xl transition-colors" title="Edit Limit (TB)"><i class="fa-solid fa-pen text-sm"></i></button>
+                        <form action="/reset_node_traffic/{{ node.id }}" method="POST" onsubmit="return confirm('Reset node traffic to 0 TB for {{ node.id }}? This will NOT reset the keys inside.');" class="m-0"><button type="submit" class="text-amber-500 hover:text-amber-600 bg-amber-50 hover:bg-amber-100 p-2.5 rounded-xl transition-colors" title="Reset Node Traffic"><i class="fa-solid fa-rotate-left text-sm"></i></button></form>
+                        <form action="/reinstall_node/{{ node.id }}" method="POST" onsubmit="return confirm('Reinstall Xray and reprovision keys on {{ node.id }} now?');" class="m-0"><button type="submit" class="text-sky-500 hover:text-sky-600 bg-sky-50 hover:bg-sky-100 p-2.5 rounded-xl transition-colors" title="Reinstall Node"><i class="fa-solid fa-screwdriver-wrench text-sm"></i></button></form>
+                    </div>
+                </div>
+                <a href="/node/{{ node.id }}" class="block flex-1">
+                    <div class="absolute top-6 right-6 flex flex-col items-end gap-2 md:group-hover:hidden transition-opacity">
+                        <span class="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-md text-[10px] font-black uppercase font-mono shadow-sm">{{ node.id }}</span>
+                        <span class="h-{{ node.health }} text-[10px] font-black uppercase flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px]"></i> {{ node.health }}</span>
+                    </div>
+                    <h2 class="text-2xl font-black text-slate-800 mb-1.5 truncate pr-24">{{ node.name }}</h2>
+                    <p class="text-sm font-mono font-bold text-slate-400 mb-3 truncate flex items-center gap-1.5"><i class="fa-solid fa-globe text-blue-400"></i> {{ node.ip }}</p>
+                    <div id="ping_{{ node.id }}" class="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 mb-6">
+                        <i class="fa-solid fa-wave-square"></i> Ping: ...
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100">
+                        <div><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Keys</p><p class="text-xl font-black text-slate-700">{{ node.total }}</p></div>
+                        <div class="w-px h-8 bg-slate-200"></div>
+                        <div class="text-right"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Active</p><p class="text-xl font-black text-emerald-500">{{ node.live }}</p></div>
+                    </div>
+                </a>
+                <div class="mt-auto pt-2">
+                    <div class="flex justify-between items-end mb-2"><div><span class="text-xs font-black {% if node.is_alarm %}text-red-600{% else %}text-blue-600{% endif %}">{{ "%.2f"|format(node.used_gb) }} GB</span><span class="text-[10px] font-bold text-slate-400 ml-1">Used</span></div><span class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Limit: {{ node.limit_tb }} TB</span></div>
+                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden shadow-inner"><div class="h-full {% if node.is_alarm %}bg-red-500 animate-pulse{% else %}bg-blue-500{% endif %} rounded-full transition-all duration-1000" style="width: {{ (node.used_gb / (node.limit_tb * 1024) * 100) if node.limit_tb > 0 else 0 }}%"></div></div>
+                    {% if node.is_alarm %}<p class="text-[10px] font-black text-red-500 mt-2.5 text-center uppercase tracking-widest"><i class="fa-solid fa-triangle-exclamation animate-bounce mr-1"></i> Traffic Limit Reached!</p>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white rounded-3xl p-10 border border-slate-200 border-dashed text-center"><div class="w-16 h-16 bg-blue-50 text-blue-300 rounded-full flex items-center justify-center text-2xl mx-auto mb-4"><i class="fa-solid fa-server"></i></div><p class="text-sm font-bold text-slate-500">No custom nodes added yet.</p></div>
+        {% endif %}
+    </div>
+</div>
+
+<div id="backupsModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[70] transition-all">
+    <div class="bg-white rounded-3xl p-6 md:p-8 w-full max-w-4xl shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col relative overflow-hidden">
+        <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+            <h2 class="text-2xl font-black text-slate-800 flex items-center gap-3"><i class="fa-solid fa-database text-emerald-500"></i> Backups Center</h2>
+            <button type="button" onclick="document.getElementById('backupsModal').classList.add('hidden')" class="w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="overflow-y-auto pr-2 space-y-8 flex-1">
+            <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                    <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Full Backup</p>
+                    <p class="text-xs font-bold text-slate-600 mt-1">Snapshot all configs and databases.</p>
+                </div>
+                <div class="flex gap-2">
+                    <form action="/create_full_backup" method="POST" class="m-0">
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-black">
+                            <i class="fa-solid fa-floppy-disk mr-1"></i> Create Full Backup
+                        </button>
+                    </form>
+                    <form action="/upload_backup" method="POST" enctype="multipart/form-data" class="m-0 flex items-center gap-2">
+                        <input type="file" name="backup_file" accept=".json" required class="text-[10px] font-bold text-slate-500 max-w-[170px]">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-black">
+                            <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Restore Upload
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3 bg-emerald-50 px-3 py-1.5 rounded-lg inline-flex items-center gap-2 border border-emerald-100"><i class="fa-solid fa-hard-drive"></i> Full Backup Files</h3>
+                {% if full_backups %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {% for f in full_backups %}
+                    <div class="bg-white border border-slate-200 p-3 rounded-xl shadow-sm flex items-center justify-between">
+                        <div class="truncate mr-2">
+                            <p class="text-xs font-black text-slate-700 truncate">{{ f.filename }}</p>
+                            <p class="text-[10px] font-bold text-slate-400">{{ f.time }} • {{ f.size }}</p>
+                            <p class="text-[9px] font-mono font-bold text-slate-400">Folder: {{ f.folder }}</p>
+                        </div>
+                        <div class="flex gap-1.5 shrink-0">
+                            <a href="/download_backup/{{ f.ref }}" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors"><i class="fa-solid fa-download text-[10px]"></i></a>
+                            <form action="/restore_full_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Restore FULL backup now?');" class="m-0"><button type="submit" class="bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors"><i class="fa-solid fa-rotate-left text-[10px]"></i></button></form>
+                            <form action="/delete_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Delete backup?');" class="m-0"><button type="submit" class="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors"><i class="fa-solid fa-trash-can text-[10px]"></i></button></form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-xs font-bold text-slate-400">No full backup files yet.</p>
+                {% endif %}
+            </div>
+
+            {% if custom_backups %}
+            <div>
+                <h3 class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3 bg-blue-50 px-3 py-1.5 rounded-lg inline-flex items-center gap-2 border border-blue-100"><i class="fa-solid fa-server"></i> Custom Node Backups</h3>
+                <div class="space-y-3">
+                    {% for nid, data in custom_backups.items() %}
+                    {% set latest = data.files[0] %}
+                    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                        <div class="px-5 py-4 cursor-pointer hover:bg-slate-50 transition-colors flex justify-between items-center" onclick="document.getElementById('backup_{{nid}}').classList.toggle('hidden')">
+                            <div>
+                                <h4 class="text-sm font-black text-slate-800">{{ data.name }} <span class="text-[10px] text-slate-400 font-mono ml-1 uppercase">({{ nid }})</span></h4>
+                                <p class="text-[10px] font-bold text-slate-500">{{ data.ip }}</p>
+                                <p class="text-[10px] font-bold text-emerald-600 mt-0.5">Latest: {{ latest.time }}</p>
+                            </div>
+                            <span class="bg-slate-100 text-slate-600 text-[10px] font-black px-2.5 py-1 rounded-md">{{ data.files|length }} Files</span>
+                        </div>
+                        <div id="backup_{{nid}}" class="hidden border-t border-slate-100 bg-slate-50/50 p-4 space-y-2">
+                            {% for f in data.files %}
+                            <div class="flex items-center justify-between bg-white border border-slate-200 p-2.5 rounded-lg">
+                                <div class="truncate mr-2">
+                                    <p class="text-[11px] font-bold text-slate-700 truncate">{{ f.filename }}</p>
+                                    <p class="text-[9px] font-mono font-bold text-slate-400">{{ f.time }} • {{ f.size }}</p>
+                                    <p class="text-[8px] font-mono font-bold text-slate-400">Folder: {{ f.folder }}</p>
+                                </div>
+                                <div class="flex gap-1 shrink-0">
+                                    <a href="/download_backup/{{ f.ref }}" class="bg-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-download text-[9px]"></i></a>
+                                    <form action="/restore_node_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Restore this node backup to {{ nid }}?');" class="m-0"><input type="hidden" name="node_id" value="{{ nid }}"><button type="submit" class="bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-rotate-left text-[9px]"></i></button></form>
+                                    <form action="/delete_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Delete backup?');" class="m-0"><button type="submit" class="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-trash-can text-[9px]"></i></button></form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if auto_backups %}
+            <div>
+                <h3 class="text-xs font-black text-purple-600 uppercase tracking-widest mb-3 bg-purple-50 px-3 py-1.5 rounded-lg inline-flex items-center gap-2 border border-purple-100"><i class="fa-solid fa-network-wired"></i> Group Node Backups</h3>
+                <div class="space-y-4">
+                    {% for gid, gdata in auto_backups.items() %}
+                    <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                        <h4 class="text-sm font-black text-slate-800 mb-4">{{ gdata.name }} <span class="text-[10px] text-slate-400 font-mono ml-1 uppercase">({{ gid }})</span></h4>
+                        <div class="space-y-3">
+                            {% for nid, node_data in gdata.nodes.items() %}
+                            {% set latest = node_data.files[0] %}
+                            <div class="border border-slate-200 rounded-xl overflow-hidden">
+                                <div class="px-4 py-3 cursor-pointer bg-slate-50 hover:bg-purple-50 transition-colors flex justify-between items-center" onclick="document.getElementById('backup_{{gid}}_{{nid}}').classList.toggle('hidden')">
+                                    <div>
+                                        <h5 class="text-xs font-black text-slate-700 uppercase">{{ node_data.name }} <span class="text-slate-400">({{ nid }})</span></h5>
+                                        <p class="text-[9px] font-bold text-slate-500">{{ node_data.ip }}</p>
+                                        <p class="text-[9px] font-bold text-emerald-600">Latest: {{ latest.time }}</p>
+                                    </div>
+                                    <span class="bg-white border border-slate-200 text-slate-600 text-[10px] font-black px-2 py-0.5 rounded-md shadow-sm">{{ node_data.files|length }} Files</span>
+                                </div>
+                                <div id="backup_{{gid}}_{{nid}}" class="hidden border-t border-slate-200 bg-white p-4 space-y-2">
+                                    {% for f in node_data.files %}
+                                    <div class="flex items-center justify-between bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                                        <div class="truncate mr-2">
+                                            <p class="text-[11px] font-bold text-slate-700 truncate">{{ f.filename }}</p>
+                                            <p class="text-[8px] font-mono font-bold text-slate-400">{{ f.time }} • {{ f.size }}</p>
+                                            <p class="text-[8px] font-mono font-bold text-slate-400">Folder: {{ f.folder }}</p>
+                                        </div>
+                                        <div class="flex gap-1 shrink-0">
+                                            <a href="/download_backup/{{ f.ref }}" class="bg-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-download text-[9px]"></i></a>
+                                            <form action="/restore_node_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Restore this backup to {{ nid }}?');" class="m-0"><input type="hidden" name="node_id" value="{{ nid }}"><button type="submit" class="bg-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-rotate-left text-[9px]"></i></button></form>
+                                            <form action="/delete_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Delete backup?');" class="m-0"><button type="submit" class="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-trash-can text-[9px]"></i></button></form>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if orphaned_backups %}
+            <div>
+                <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 bg-slate-100 px-3 py-1.5 rounded-lg inline-flex items-center gap-2 border border-slate-200"><i class="fa-solid fa-ghost"></i> Orphan Node Backups</h3>
+                <div class="space-y-3">
+                    {% for nid, files in orphaned_backups.items() %}
+                    <div class="bg-white border border-slate-200 rounded-2xl p-4">
+                        <h4 class="text-sm font-black text-slate-600 uppercase mb-2">{{ nid }}</h4>
+                        <div class="space-y-2">
+                            {% for f in files %}
+                            <div class="flex items-center justify-between bg-slate-50 border border-slate-100 p-2.5 rounded-lg">
+                                <div class="truncate mr-2">
+                                    <p class="text-[11px] font-bold text-slate-700 truncate">{{ f.filename }}</p>
+                                    <p class="text-[8px] font-mono font-bold text-slate-400">{{ f.time }} • {{ f.size }}</p>
+                                    <p class="text-[8px] font-mono font-bold text-slate-400">Folder: {{ f.folder }}</p>
+                                </div>
+                                <div class="flex gap-1 shrink-0">
+                                    <a href="/download_backup/{{ f.ref }}" class="bg-slate-100 text-slate-500 hover:bg-slate-500 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-download text-[9px]"></i></a>
+                                    <form action="/delete_backup/{{ f.ref }}" method="POST" onsubmit="return confirm('Delete backup?');" class="m-0"><button type="submit" class="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white w-6 h-6 rounded flex items-center justify-center transition-colors"><i class="fa-solid fa-trash-can text-[9px]"></i></button></form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if not full_backups and not custom_backups and not auto_backups and not orphaned_backups %}
+            <div class="text-center py-16">
+                <div class="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner"><i class="fa-solid fa-box-open"></i></div>
+                <h3 class="text-lg font-black text-slate-800 mb-1">No Backups Yet</h3>
+                <p class="text-sm font-bold text-slate-500">Create Full Backup or Node Backup to get started.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div id="globalHealthModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[70] transition-all">
+    <div class="bg-white rounded-3xl p-6 md:p-8 w-full max-w-4xl shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col relative overflow-hidden">
+        <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+            <h2 class="text-2xl font-black text-slate-800 flex items-center gap-3"><i class="fa-solid fa-heart-pulse text-red-500 animate-pulse"></i> Node Health Center</h2>
+            <button type="button" onclick="document.getElementById('globalHealthModal').classList.add('hidden')" class="w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="overflow-y-auto pr-2 space-y-8 flex-1">
+            {% if sick_count == 0 %}
+            <div class="text-center py-16"><div class="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4"><i class="fa-regular fa-face-smile-beam"></i></div><h3 class="text-lg font-black text-slate-800 mb-1">All Systems Green</h3><p class="text-sm font-bold text-slate-500">No nodes are currently marked with warning or critical health states.</p></div>
+            {% else %}
+            {% for color, snodes in sick_nodes.items() %}
+                {% if snodes|length > 0 %}
+                <div><h3 class="text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2 h-{{ color }} bg-slate-50 w-fit px-3 py-1.5 rounded-lg shadow-sm border border-slate-100"><i class="fa-solid fa-circle text-[8px]"></i> {{ color }} Status ({{ snodes|length }})</h3><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{% for n in snodes %}<div class="bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-md transition-shadow relative"><a href="/node/{{ n.id }}" class="block"><h4 class="font-black text-slate-800 text-lg mb-1 truncate pr-8">{{ n.name }}</h4><p class="text-xs font-mono font-bold text-slate-500 mb-3">{{ n.ip }}</p><span class="bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm">{{ n.id }}</span></a></div>{% endfor %}</div></div>
+                {% endif %}
+            {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[70] transition-all">
+    <div class="bg-white rounded-3xl p-6 md:p-8 w-full max-w-2xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-black text-slate-800 flex items-center gap-3"><i class="fa-solid fa-robot text-indigo-500"></i> Telegram Bot Settings</h2>
+            <button type="button" onclick="document.getElementById('settingsModal').classList.add('hidden')" class="w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="mb-6 bg-gradient-to-r from-cyan-50 to-indigo-50 border border-cyan-100 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+                <p class="text-[10px] font-black uppercase tracking-widest text-cyan-600 mb-1">Dashboard Logs</p>
+                <p class="text-xs font-bold text-slate-600">View latest actions done from Dashboard.</p>
+            </div>
+            <button type="button" onclick="openHistoryModal()" class="btn-pop bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-xl text-xs font-black">
+                <i class="fa-solid fa-clock-rotate-left mr-1"></i> Open History
+            </button>
+        </div>
+        <div class="mb-6 bg-gradient-to-r from-amber-50 to-rose-50 border border-amber-100 rounded-2xl p-4">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Node Health</p>
+                    <p class="text-xs font-bold text-slate-600">Show nodes with inactive Xray or SSH issue.</p>
+                </div>
+                <button type="button" onclick="refreshInactiveNodes()" class="btn-pop bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> Refresh Now
+                </button>
+            </div>
+            <div id="inactiveNodeSummary" class="mt-3 text-[11px] font-black text-slate-500">Press refresh to check node health.</div>
+            <div id="inactiveNodeList" class="mt-3 space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+        </div>
+        <div class="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-6">
+            <h3 class="text-sm font-black text-indigo-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-link"></i> External Panel Sync
+            </h3>
+            <form action="/save_external_sync_settings" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">External Panel URL</label>
+                    <input type="text" name="external_sync_url" value="{{ config.external_sync_url or '' }}" placeholder="dash.example.com" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
+                    <p class="text-[9px] text-slate-400 mt-1 ml-1">Domain or full URL — all sync endpoints auto-derive from this</p>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">x-api-key</label>
+                    <input type="text" name="external_sync_api_key" value="{{ config.external_sync_api_key or '' }}" placeholder="pmk_xxx..." class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300">
+                </div>
+                {% if config.external_sync_url %}
+                <div class="bg-white border border-indigo-100 rounded-xl p-3 space-y-1.5">
+                    <p class="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-2">Active Sync Endpoints</p>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full {{ 'bg-green-400' if config.external_sync_api_key else 'bg-red-400' }}"></span>
+                        <span class="text-[10px] font-bold text-slate-500">GB Sync</span>
+                        <span class="text-[10px] font-mono text-slate-400 truncate">{{ config.external_sync_url }}/api/internal/sync-user-usage</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full {{ 'bg-green-400' if config.external_sync_api_key else 'bg-red-400' }}"></span>
+                        <span class="text-[10px] font-bold text-slate-500">Active Users</span>
+                        <span class="text-[10px] font-mono text-slate-400 truncate">{{ config.external_sync_url }}/api/internal/sync-node-stats</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full {{ 'bg-green-400' if config.external_sync_api_key else 'bg-red-400' }}"></span>
+                        <span class="text-[10px] font-bold text-slate-500">New Server</span>
+                        <span class="text-[10px] font-mono text-slate-400 truncate">{{ config.external_sync_url }}/api/internal/sync-new-server</span>
+                    </div>
+                    {% if not config.external_sync_api_key %}
+                    <p class="text-[9px] text-red-500 font-bold mt-1"><i class="fa-solid fa-triangle-exclamation"></i> API key not set — sync is disabled</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md shadow-indigo-200 transition">
+                    Save External Sync Settings
+                </button>
+            </form>
+        </div>
+        <div class="bg-sky-50 p-6 rounded-2xl border border-sky-100 mb-6">
+            <h3 class="text-sm font-black text-sky-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-key"></i> Incoming API Keys
+            </h3>
+            <div class="mb-4 p-3 bg-white border border-sky-100 rounded-xl">
+                <p class="text-[10px] font-black uppercase tracking-widest text-sky-500 mb-1">Security Notes</p>
+                <p class="text-xs font-bold text-slate-600">Real API key is shown only once at create time. Stored value is hashed (SHA-256), not plain key.</p>
+            </div>
+            <form onsubmit="return createIncomingApiKey(event)" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <input id="incomingApiKeyName" type="text" placeholder="Client Name (e.g. panel-prod)" class="md:col-span-2 w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-sky-100 focus:border-sky-300" required>
+                <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md shadow-sky-200 transition">
+                    Create Key
+                </button>
+            </form>
+            <div id="incomingApiKeyReveal" class="hidden mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <p class="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-1">Copy Now (shown once)</p>
+                <p id="incomingApiKeyRevealText" class="text-xs font-mono font-black text-amber-700 break-all"></p>
+            </div>
+            <div id="incomingApiKeyList" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+        </div>
+        <div class="bg-violet-50 p-6 rounded-2xl border border-violet-100 mb-6">
+            <h3 class="text-sm font-black text-violet-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved"></i> Login & OTP Security
+            </h3>
+            <form action="/save_auth_security_settings" method="POST" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Login Username</label>
+                        <input type="text" name="auth_username" value="{{ config.auth_username or 'admin' }}" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Current Password (required for username/password change)</label>
+                        <input type="password" name="current_password" placeholder="Enter current password" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">New Password</label>
+                        <input type="password" name="new_password" placeholder="Leave blank to keep current password" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Confirm New Password</label>
+                        <input type="password" name="confirm_password" placeholder="Repeat new password" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                    </div>
+                </div>
+                <label class="flex items-center justify-between bg-white border border-violet-100 rounded-xl px-3 py-2">
+                    <span class="text-xs font-black text-slate-600">Enable Telegram OTP (2FA)</span>
+                    <input type="checkbox" name="auth_2fa_enabled" {% if config.auth_2fa_enabled %}checked{% endif %} class="w-4 h-4 accent-violet-600">
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="md:col-span-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">OTP Bot Token</label>
+                        <input type="text" name="auth_telegram_bot_token" value="{{ config.auth_telegram_bot_token or '' }}" placeholder="123456:ABC..." class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">OTP Admin Chat ID</label>
+                        <input type="text" name="auth_telegram_admin_id" value="{{ config.auth_telegram_admin_id or '' }}" placeholder="123456789" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">OTP TTL (seconds)</label>
+                    <input type="number" step="1" min="60" max="1800" name="auth_otp_ttl_seconds" value="{{ config.auth_otp_ttl_seconds or 300 }}" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-violet-100 focus:border-violet-300">
+                </div>
+                <button type="submit" class="w-full bg-violet-600 hover:bg-violet-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md shadow-violet-200 transition">
+                    Save Login & OTP Security
+                </button>
+            </form>
+        </div>
+        <form action="/save_settings_basic" method="POST" class="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-6"><h3 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">Core Config</h3><div class="space-y-4 mb-4"><div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Bot Token</label><input type="text" name="bot_token" value="{{ config.bot_token }}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"></div><div><label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Sync Interval (Hours)</label><input type="number" name="interval" value="{{ config.interval }}" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"></div></div><button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md shadow-indigo-200 transition">Save Core Config</button></form>
+
+        <div class="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 mb-6">
+            <h3 class="text-sm font-black text-emerald-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-paper-plane"></i> Telegram Backup Bot
+            </h3>
+            <form action="/save_backup_bot_settings" method="POST" class="space-y-4 mb-4">
+                <label class="flex items-center justify-between bg-white border border-emerald-100 rounded-xl px-3 py-2">
+                    <span class="text-xs font-black text-slate-600">Enable Auto Send</span>
+                    <input type="checkbox" name="backup_bot_enabled" {% if config.backup_bot_enabled %}checked{% endif %} class="w-4 h-4 accent-emerald-600">
+                </label>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Backup Bot Token</label>
+                    <input type="text" name="backup_bot_token" value="{{ config.backup_bot_token or '' }}" placeholder="123456:ABC..." class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Admin Chat ID</label>
+                    <input type="text" name="backup_bot_admin_id" value="{{ config.backup_bot_admin_id or '' }}" placeholder="123456789" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Send Every (Minutes)</label>
+                    <input type="number" step="1" min="1" name="backup_bot_interval_minutes" value="{{ config.backup_bot_interval_minutes or ((config.backup_bot_interval_hours or 1) * 60) }}" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300">
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl text-sm font-bold shadow-md shadow-emerald-200 transition">
+                    Save Backup Bot Settings
+                </button>
+            </form>
+            <form action="/send_backup_now" method="POST" class="m-0">
+                <button type="submit" class="w-full bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-4 py-3 rounded-xl text-sm font-black transition">
+                    <i class="fa-solid fa-floppy-disk mr-1.5"></i> Backup Now
+                </button>
+            </form>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><h3 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-3">Admins</h3><div class="space-y-2 mb-4 max-h-32 overflow-y-auto pr-1">{% for aid in config.admin_ids %}<div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100"><span class="text-xs font-mono font-bold text-slate-600">{{ aid }}</span><form action="/config_action" method="POST" class="m-0"><input type="hidden" name="type" value="admin"><input type="hidden" name="action" value="del"><input type="hidden" name="val" value="{{ aid }}"><button class="text-red-400 hover:text-red-600 px-2"><i class="fa-solid fa-xmark"></i></button></form></div>{% else %}<p class="text-xs text-slate-400 italic">No admins added.</p>{% endfor %}</div><form action="/config_action" method="POST" class="flex gap-2"><input type="hidden" name="type" value="admin"><input type="hidden" name="action" value="add"><input type="text" name="val" placeholder="Telegram ID" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg text-xs font-mono" required><button class="bg-slate-800 text-white px-3 rounded-lg text-xs font-bold hover:bg-black transition"><i class="fa-solid fa-plus"></i></button></form></div><div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><h3 class="text-sm font-black text-slate-700 uppercase tracking-widest mb-3">Moderators</h3><div class="space-y-2 mb-4 max-h-32 overflow-y-auto pr-1">{% for mid in config.mod_ids %}<div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg border border-slate-100"><span class="text-xs font-mono font-bold text-slate-600">{{ mid }}</span><form action="/config_action" method="POST" class="m-0"><input type="hidden" name="type" value="mod"><input type="hidden" name="action" value="del"><input type="hidden" name="val" value="{{ mid }}"><button class="text-red-400 hover:text-red-600 px-2"><i class="fa-solid fa-xmark"></i></button></form></div>{% else %}<p class="text-xs text-slate-400 italic">No mods added.</p>{% endfor %}</div><form action="/config_action" method="POST" class="flex gap-2"><input type="hidden" name="type" value="mod"><input type="hidden" name="action" value="add"><input type="text" name="val" placeholder="Telegram ID" class="w-full bg-slate-50 border border-slate-200 p-2 rounded-lg text-xs font-mono" required><button class="bg-slate-800 text-white px-3 rounded-lg text-xs font-bold hover:bg-black transition"><i class="fa-solid fa-plus"></i></button></form></div></div>
+    </div>
+</div>
+
+<div id="historyModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[80] transition-all">
+    <div class="bg-white rounded-3xl p-6 md:p-8 w-full max-w-4xl shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col overflow-hidden">
+        <div class="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
+            <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-cyan-500"></i> Dashboard Action History</h2>
+            <button type="button" onclick="closeHistoryModal()" class="w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="mb-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+            <div class="flex flex-col md:flex-row gap-2 flex-1">
+                <input id="historySearchInput" type="text" oninput="filterHistoryLogs()" placeholder="Search action/details..." class="w-full md:w-80 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-100 focus:border-cyan-300">
+                <select id="historyLevelFilter" onchange="filterHistoryLogs()" class="w-full md:w-44 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-100 focus:border-cyan-300">
+                    <option value="">All Levels</option>
+                    <option value="success">Success</option>
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="error">Error</option>
+                </select>
+            </div>
+            <form action="/clear_activity_logs" method="POST" onsubmit="return confirm('Clear all dashboard history logs?');" class="m-0">
+                <button type="submit" class="bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border border-red-200 hover:border-red-500 px-4 py-2 rounded-xl text-xs font-black transition-colors w-full md:w-auto">
+                    <i class="fa-solid fa-trash mr-1"></i> Clear Logs
+                </button>
+            </form>
+        </div>
+        <div class="overflow-y-auto pr-1 space-y-3">
+            {% if activity_logs %}
+                {% for log in activity_logs %}
+                <div class="history-item rounded-2xl border border-slate-200 bg-slate-50/70 p-4" data-level="{{ log.level|lower }}" data-action="{{ (log.action or '')|lower }}" data-details="{{ (log.details or '')|lower }}">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <p class="text-sm font-black text-slate-800">{{ log.action }}</p>
+                        <span class="text-[10px] font-black px-2 py-1 rounded-md uppercase
+                            {% if log.level == 'success' %}bg-emerald-100 text-emerald-600
+                            {% elif log.level == 'warning' %}bg-amber-100 text-amber-700
+                            {% elif log.level == 'error' %}bg-red-100 text-red-600
+                            {% else %}bg-blue-100 text-blue-600{% endif %}">
+                            {{ log.level }}
+                        </span>
+                    </div>
+                    <p class="text-xs font-bold text-slate-500">{{ log.details or 'No extra details' }}</p>
+                    <p class="text-[10px] font-mono text-slate-400 mt-2">{{ log.time }}</p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-16">
+                    <div class="w-16 h-16 bg-cyan-50 text-cyan-400 rounded-full flex items-center justify-center text-2xl mx-auto mb-4"><i class="fa-regular fa-clock"></i></div>
+                    <p class="text-sm font-bold text-slate-500">No actions logged yet.</p>
+                </div>
+            {% endif %}
+            <div id="historyNoMatch" class="hidden text-center py-10">
+                <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-xl mx-auto mb-3"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <p class="text-sm font-bold text-slate-500">No logs match your filter.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="searchModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[82] transition-all">
+    <div class="bg-white rounded-3xl p-6 md:p-8 w-full max-w-5xl shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col overflow-hidden">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+            <h2 class="text-xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-magnifying-glass text-indigo-500"></i> Search Results</h2>
+            <button type="button" onclick="closeSearchModal()" class="w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p id="searchMeta" class="text-xs font-bold text-slate-400 mb-3">-</p>
+        <div id="searchResultsWrap" class="overflow-y-auto pr-1 space-y-4">
+            <div id="searchLoading" class="text-center py-10 text-slate-400"><i class="fa-solid fa-circle-notch fa-spin text-xl mb-2"></i><p class="text-xs font-bold">Searching...</p></div>
+            <div id="searchResultsContent"></div>
+        </div>
+    </div>
+</div>
+
+<div id="dangerConfirmModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[83] transition-all">
+    <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border border-red-100">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-11 h-11 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div>
+                <p id="dangerTitle" class="text-lg font-black text-slate-800">Double Confirm</p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-red-500">Danger Action</p>
+            </div>
+        </div>
+        <p id="dangerDesc" class="text-xs font-bold text-slate-600 bg-red-50 border border-red-100 p-3 rounded-xl mb-4">-</p>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-1">Type ID to confirm</label>
+        <input id="dangerInput" type="text" class="w-full bg-white border border-slate-200 p-3 rounded-xl font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-300">
+        <div class="flex justify-end gap-2 mt-5">
+            <button type="button" onclick="closeDangerConfirmModal()" class="px-4 py-2 text-sm font-black text-slate-500">Cancel</button>
+            <button type="button" onclick="submitDangerConfirm()" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-xl text-sm font-black">Confirm Delete</button>
+        </div>
+    </div>
+</div>
+
+<div id="addNodeModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[60]">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-6 text-slate-800">Add Custom Node</h2>
+        <form action="/add_node" method="POST">
+            <div class="space-y-4 mb-8">
+                <input type="text" name="node_id" placeholder="Node ID (e.g. sg_01)" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition" required>
+                <input type="text" name="node_name" placeholder="Display Name" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition" required>
+                <input type="text" name="node_ip" placeholder="Server IP Address" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition" required>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('addNodeModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-200 transition">Add Node</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="addAutoGroupModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[60]">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-6 text-slate-800">Create Auto Node</h2>
+        <form action="/add_auto_group" method="POST">
+            <div class="space-y-4 mb-8">
+                <input type="text" name="group_id" placeholder="Auto ID (e.g. auto_sg)" class="w-full bg-purple-50/50 border border-purple-100 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition" required>
+                <input type="text" name="group_name" placeholder="Display Name" class="w-full bg-purple-50/50 border border-purple-100 p-3.5 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition" required>
+                <div class="relative">
+                    <input type="number" name="limit" value="30" class="w-full bg-purple-50/50 border border-purple-100 p-3.5 rounded-xl font-mono text-sm font-black text-purple-600 pr-24 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition" required>
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-purple-400 uppercase tracking-wider">Keys / Node</span>
+                </div>
+
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('addAutoGroupModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="setTbModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[60] transition-all">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100 transform scale-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800">Node Traffic Limit</h2>
+        <p class="text-xs text-slate-500 mb-6 font-bold">Set max limit (TB) for <span id="tbNodeId" class="text-indigo-600 uppercase font-black"></span></p>
+        <form id="setTbForm" method="POST">
+            <div class="relative mb-8">
+                <input type="number" step="0.1" name="limit_tb" id="tbInput" class="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-mono text-sm font-black text-indigo-600 pr-12 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all" required>
+                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">TB</span>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('setTbModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-200 transition">Save Limit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="installPromptModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[60]">
+    <div class="bg-white rounded-3xl p-8 w-[450px] shadow-2xl text-center border border-slate-100">
+        <div class="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner"><i class="fa-solid fa-server"></i></div>
+        <h2 class="text-2xl font-black mb-2 text-slate-800">Server Added!</h2>
+        <p class="text-slate-500 text-sm font-bold mb-6">Let's setup Xray-Core automatically.</p>
+        <div id="sshCheckArea" class="mb-8 p-5 rounded-2xl bg-slate-50/80 border border-slate-200/60 text-sm">
+            <p id="sshStatusText" class="font-bold text-slate-600"><i class="fa-solid fa-spinner fa-spin mr-2 text-indigo-500"></i> Checking SSH Connection...</p>
+            <div id="sshInstructions" class="hidden mt-4 text-left border-t border-slate-200/80 pt-4">
+                <p class="text-red-500 font-black text-sm mb-2 uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation mr-1"></i> SSH Error Found</p>
+                <p class="text-slate-600 text-xs font-bold leading-relaxed" id="sshErrorDetail">Please add this Master Server's Public SSH Key to the new Node Server's <code>~/.ssh/authorized_keys</code> file to proceed.</p>
+                <button type="button" onclick="checkSSH()" class="mt-4 w-full bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-xl text-xs font-bold transition shadow-md shadow-slate-200">Check Connection Again</button>
+            </div>
+        </div>
+        <form id="installForm" action="" method="POST">
+            <div class="flex gap-3 justify-center" id="installBtnContainer">
+                <button type="button" id="cancelInstallBtn" onclick="document.getElementById('installPromptModal').classList.add('hidden')" class="px-6 py-3 font-bold text-slate-500 hover:text-slate-800 transition bg-slate-100 hover:bg-slate-200 rounded-xl w-full">I'll do it later</button>
+                <button type="submit" id="installBtn" disabled class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold opacity-50 cursor-not-allowed transition w-full shadow-md shadow-indigo-200">Install Xray</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleDropdown() { document.getElementById('topMenu').classList.toggle('hidden'); }
+window.onclick = function(e) { if (!e.target.closest('.dropdown-container')) { let d = document.getElementById("topMenu"); if (!d.classList.contains('hidden')) { d.classList.add('hidden'); } } }
+function openHistoryModal() {
+    const settings = document.getElementById('settingsModal');
+    if (settings) settings.classList.add('hidden');
+    const modal = document.getElementById('historyModal');
+    if (modal) modal.classList.remove('hidden');
+}
+function openSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) modal.classList.remove('hidden');
+    refreshInactiveNodes();
+    loadIncomingApiKeys();
+}
+function readCsrfToken() {
+    const byCookie = (document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/) || [])[1];
+    if (byCookie) return decodeURIComponent(byCookie);
+    const hidden = document.querySelector('input[name="_csrf_token"]');
+    return hidden ? hidden.value : '';
+}
+async function loadIncomingApiKeys() {
+    const listEl = document.getElementById('incomingApiKeyList');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="text-xs font-black text-slate-400">Loading API keys...</div>';
+    try {
+        const res = await fetch('/security/api-keys');
+        const json = await res.json();
+        const items = Array.isArray(json.items) ? json.items : [];
+        if (!items.length) {
+            listEl.innerHTML = '<div class="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-400">No client API keys yet.</div>';
+            return;
+        }
+        listEl.innerHTML = items.map((it) => {
+            const id = escapeHtml(it.id || '-');
+            const name = escapeHtml(it.name || 'unnamed');
+            const enabled = !!it.enabled;
+            const prefix = escapeHtml(it.key_prefix || '');
+            const suffix = escapeHtml(it.key_suffix || '');
+            const createdAt = escapeHtml(it.created_at || '-');
+            const revokedAt = escapeHtml(it.revoked_at || '');
+            const badge = enabled
+                ? '<span class="text-[10px] font-black uppercase bg-emerald-100 text-emerald-600 px-2 py-1 rounded">active</span>'
+                : '<span class="text-[10px] font-black uppercase bg-rose-100 text-rose-600 px-2 py-1 rounded">revoked</span>';
+            const revokeBtn = enabled
+                ? `<button type="button" onclick="revokeIncomingApiKey('${id}')" class="px-2.5 py-1 rounded-lg text-[10px] font-black bg-rose-500 hover:bg-rose-600 text-white transition">Revoke</button>`
+                : '<span class="text-[10px] font-black text-slate-400">-</span>';
+            return `<div class="bg-white border border-slate-200 rounded-xl p-3">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <p class="text-xs font-black text-slate-700">${name} <span class="text-[10px] text-slate-400">(${id})</span></p>
+                            ${badge}
+                        </div>
+                        <p class="text-[10px] font-mono font-black text-slate-500">key: ${prefix}...${suffix}</p>
+                        <p class="text-[10px] font-bold text-slate-400 mt-1">created: ${createdAt}${revokedAt ? ` • revoked: ${escapeHtml(revokedAt)}` : ''}</p>
+                        <div class="mt-2 flex justify-end">${revokeBtn}</div>
+                    </div>`;
+        }).join('');
+    } catch (e) {
+        listEl.innerHTML = '<div class="bg-red-50 border border-red-100 rounded-xl px-3 py-2 text-xs font-black text-red-600">Failed to load API keys.</div>';
+    }
+}
+async function createIncomingApiKey(ev) {
+    ev.preventDefault();
+    const nameEl = document.getElementById('incomingApiKeyName');
+    const reveal = document.getElementById('incomingApiKeyReveal');
+    const revealText = document.getElementById('incomingApiKeyRevealText');
+    const name = (nameEl?.value || '').trim();
+    if (!name) return false;
+    reveal.classList.add('hidden');
+    revealText.innerText = '';
+    try {
+        const res = await fetch('/security/api-keys/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': readCsrfToken()
+            },
+            body: JSON.stringify({ name })
+        });
+        const json = await res.json();
+        if (!json.success || !json.item || !json.item.api_key) {
+            alert('Create key failed.');
+            return false;
+        }
+        revealText.innerText = json.item.api_key;
+        reveal.classList.remove('hidden');
+        nameEl.value = '';
+        await loadIncomingApiKeys();
+    } catch (e) {
+        alert('Create key failed.');
+    }
+    return false;
+}
+async function revokeIncomingApiKey(clientId) {
+    if (!confirm(`Revoke API key client ${clientId}?`)) return;
+    try {
+        const res = await fetch(`/security/api-keys/revoke/${encodeURIComponent(clientId)}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': readCsrfToken()
+            }
+        });
+        const json = await res.json();
+        if (!json.success) {
+            alert(json.error || 'Revoke failed.');
+            return;
+        }
+        await loadIncomingApiKeys();
+    } catch (e) {
+        alert('Revoke failed.');
+    }
+}
+async function refreshInactiveNodes() {
+    const summaryEl = document.getElementById('inactiveNodeSummary');
+    const listEl = document.getElementById('inactiveNodeList');
+    if (!summaryEl || !listEl) return;
+    summaryEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1 text-amber-500"></i> Checking...';
+    listEl.innerHTML = '';
+    try {
+        const res = await fetch('/settings/node-health');
+        const json = await res.json();
+        const checked = Number(json.checked || 0);
+        const inactive = Array.isArray(json.inactive_nodes) ? json.inactive_nodes : [];
+        if (!checked) {
+            summaryEl.innerText = 'No nodes found.';
+            return;
+        }
+        if (!inactive.length) {
+            summaryEl.innerText = `All ${checked} nodes are healthy (xray active).`;
+            listEl.innerHTML = '<div class="bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-black rounded-xl px-3 py-2"><i class="fa-solid fa-circle-check mr-1"></i> No inactive node.</div>';
+            return;
+        }
+        summaryEl.innerText = `${inactive.length} inactive / unreachable node(s) from ${checked} checked.`;
+        listEl.innerHTML = inactive.map((n) => {
+            const rawId = String(n.id || '-');
+            const id = escapeHtml(rawId);
+            const name = escapeHtml(n.name || id);
+            const ip = escapeHtml(n.ip || '-');
+            const status = escapeHtml(n.status || 'unknown');
+            const reason = escapeHtml(n.reason || '-');
+            const idArg = encodeURIComponent(rawId);
+            const skipped = !!n.monitor_skipped;
+            const btnClass = skipped
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-600';
+            const btnText = skipped ? 'Unskip Monitor' : 'Skip in Monitor';
+            return `<div class="bg-white border border-rose-100 rounded-xl p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-black text-slate-700">${name} <span class="text-[10px] text-slate-400">(${id})</span></p>
+                            <span class="text-[10px] font-black uppercase bg-rose-100 text-rose-600 px-2 py-1 rounded">${status}</span>
+                        </div>
+                        <p class="text-[10px] font-bold text-slate-500 mt-1">${ip}</p>
+                        <p class="text-[10px] font-bold text-rose-500 mt-1">Reason: ${reason}</p>
+                        <div class="mt-2 flex items-center justify-between gap-2">
+                            <p class="text-[10px] font-black ${skipped ? 'text-indigo-600' : 'text-slate-400'}">${skipped ? 'Monitor skip: ON' : 'Monitor skip: OFF'}</p>
+                            <button type="button" onclick="toggleMonitorSkip('${idArg}')" class="px-2.5 py-1 rounded-lg text-[10px] font-black transition ${btnClass}">
+                                ${btnText}
+                            </button>
+                        </div>
+                    </div>`;
+        }).join('');
+    } catch (e) {
+        summaryEl.innerText = 'Health check failed.';
+        listEl.innerHTML = '<div class="bg-red-50 border border-red-100 text-red-600 text-xs font-black rounded-xl px-3 py-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Unable to load node health.</div>';
+    }
+}
+async function toggleMonitorSkip(nodeIdEncoded) {
+    const nodeId = decodeURIComponent(String(nodeIdEncoded || ''));
+    try {
+        const res = await fetch(`/api/settings/monitor-skip/${encodeURIComponent(nodeId)}`, { method: 'POST' });
+        const json = await res.json();
+        if (json.status !== 'ok') {
+            alert(json.msg || 'Failed to toggle monitor skip.');
+            return;
+        }
+        await refreshInactiveNodes();
+    } catch (e) {
+        alert('Failed to toggle monitor skip.');
+    }
+}
+function closeHistoryModal() {
+    const modal = document.getElementById('historyModal');
+    if (modal) modal.classList.add('hidden');
+}
+let pendingDangerForm = null;
+let pendingDangerExpectedId = '';
+function requestTypedDangerConfirm(ev, formEl, label, expectedId, desc) {
+    if (ev) ev.preventDefault();
+    pendingDangerForm = formEl;
+    pendingDangerExpectedId = String(expectedId || '').trim();
+    document.getElementById('dangerTitle').innerText = `Delete ${label}`;
+    document.getElementById('dangerDesc').innerText = desc || `This action will delete ${label}.`;
+    const input = document.getElementById('dangerInput');
+    input.value = '';
+    input.placeholder = pendingDangerExpectedId;
+    document.getElementById('dangerConfirmModal').classList.remove('hidden');
+    setTimeout(() => input.focus(), 50);
+    return false;
+}
+function closeDangerConfirmModal() {
+    pendingDangerForm = null;
+    pendingDangerExpectedId = '';
+    document.getElementById('dangerConfirmModal').classList.add('hidden');
+}
+function submitDangerConfirm() {
+    const typed = (document.getElementById('dangerInput').value || '').trim();
+    if (typed.toLowerCase() !== pendingDangerExpectedId.toLowerCase()) {
+        alert('ID does not match.');
+        return;
+    }
+    if (!confirm(`Final confirmation for [${pendingDangerExpectedId}]?`)) return;
+    const form = pendingDangerForm;
+    closeDangerConfirmModal();
+    if (form) form.submit();
+}
+function closeSearchModal() {
+    document.getElementById('searchModal').classList.add('hidden');
+}
+function escapeHtml(s) {
+    return String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+function renderSearchSection(title, itemsHtml) {
+    return `<div class="bg-slate-50 border border-slate-200 rounded-2xl p-3"><p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">${title}</p>${itemsHtml}</div>`;
+}
+async function openSearchResults() {
+    const q = (document.getElementById('globalSearchInput').value || '').trim();
+    if (!q) return;
+    document.getElementById('searchModal').classList.remove('hidden');
+    document.getElementById('searchLoading').classList.remove('hidden');
+    document.getElementById('searchResultsContent').innerHTML = '';
+    document.getElementById('searchMeta').innerText = `Query: ${q}`;
+    try {
+        const res = await fetch(`/api/search_all?q=${encodeURIComponent(q)}`);
+        const json = await res.json();
+        const groups = json.groups || [];
+        const nodes = json.nodes || [];
+        const users = json.users || [];
+
+        let gHtml = groups.length ? groups.map(g => `<a href="${escapeHtml(g.url)}" class="block p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200"><p class="text-sm font-black text-slate-700">${escapeHtml(g.name)} <span class="text-xs text-slate-400">(${escapeHtml(g.id)})</span></p><p class="text-[10px] font-bold text-slate-400">${g.node_count} nodes</p></a>`).join('') : '<p class="text-xs font-bold text-slate-400">No group matches</p>';
+        let nHtml = nodes.length ? nodes.map(n => `<a href="${escapeHtml(n.url)}" class="block p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200"><p class="text-sm font-black text-slate-700">${escapeHtml(n.name)} <span class="text-xs text-slate-400">(${escapeHtml(n.id)})</span></p><p class="text-[10px] font-bold text-slate-400">${escapeHtml(n.ip)}</p></a>`).join('') : '<p class="text-xs font-bold text-slate-400">No node matches</p>';
+        let uHtml = users.length ? users.map(u => `<a href="${escapeHtml(u.url)}" class="block p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200"><p class="text-sm font-black text-slate-700">${escapeHtml(u.username)} <span class="text-xs text-slate-400">node:${escapeHtml(u.node || '-')}</span></p><p class="text-[10px] font-bold text-slate-400">${u.used_gb}/${u.total_gb} GB ${u.blocked ? '• blocked' : ''}</p></a>`).join('') : '<p class="text-xs font-bold text-slate-400">No key/user matches</p>';
+
+        document.getElementById('searchResultsContent').innerHTML =
+            renderSearchSection('Auto Groups', gHtml) +
+            renderSearchSection('Nodes', nHtml) +
+            renderSearchSection('Keys / Users', uHtml);
+    } catch (e) {
+        document.getElementById('searchResultsContent').innerHTML = '<p class="text-xs font-bold text-red-500">Search error.</p>';
+    } finally {
+        document.getElementById('searchLoading').classList.add('hidden');
+    }
+}
+function switchDashboardSection(section) {
+    const autoEl = document.getElementById('sectionAuto');
+    const customEl = document.getElementById('sectionCustom');
+    const autoBtn = document.getElementById('sectionTabAuto');
+    const customBtn = document.getElementById('sectionTabCustom');
+    const isAuto = section === 'auto';
+    if (autoEl) autoEl.classList.toggle('hidden', !isAuto);
+    if (customEl) customEl.classList.toggle('hidden', isAuto);
+    if (autoBtn) autoBtn.className = isAuto ? 'px-4 py-2 rounded-xl text-xs font-black bg-purple-600 text-white' : 'px-4 py-2 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-100';
+    if (customBtn) customBtn.className = !isAuto ? 'px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white' : 'px-4 py-2 rounded-xl text-xs font-black text-slate-600 hover:bg-slate-100';
+    localStorage.setItem('dashboardSectionTab', isAuto ? 'auto' : 'custom');
+}
+function filterHistoryLogs() {
+    const search = (document.getElementById('historySearchInput')?.value || '').trim().toLowerCase();
+    const level = (document.getElementById('historyLevelFilter')?.value || '').trim().toLowerCase();
+    const items = document.querySelectorAll('.history-item');
+    let visibleCount = 0;
+    items.forEach((el) => {
+        const itemLevel = (el.dataset.level || '').toLowerCase();
+        const action = (el.dataset.action || '').toLowerCase();
+        const details = (el.dataset.details || '').toLowerCase();
+        const levelMatch = !level || itemLevel === level;
+        const textMatch = !search || action.includes(search) || details.includes(search);
+        const show = levelMatch && textMatch;
+        el.classList.toggle('hidden', !show);
+        if (show) visibleCount += 1;
+    });
+    const noMatch = document.getElementById('historyNoMatch');
+    if (noMatch) noMatch.classList.toggle('hidden', visibleCount > 0);
+}
+function switchTab(tab) {
+    ['nodes', 'auto'].forEach(t => { document.getElementById('tab-' + t).classList.add('hidden'); document.getElementById('tabBtn-' + t).className = "px-6 py-2.5 text-sm font-black rounded-xl transition-all hover:bg-slate-200/50 text-slate-500"; });
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    let color = tab === 'auto' ? 'purple' : 'indigo';
+    document.getElementById('tabBtn-' + tab).className = `px-6 py-2.5 text-sm font-black rounded-xl transition-all shadow-sm bg-white text-${color}-600`;
+}
+function openTbModal(nodeId, currentLimit) { document.getElementById('tbNodeId').innerText = nodeId; document.getElementById('tbInput').value = currentLimit; document.getElementById('setTbForm').action = "/set_node_traffic/" + nodeId; document.getElementById('setTbModal').classList.remove('hidden'); }
+
+let checkNodeId = '';
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const newlyAdded = urlParams.get('newly_added');
+    if (newlyAdded) {
+        checkNodeId = newlyAdded;
+        let modal = document.getElementById('installPromptModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.getElementById('installForm').action = "/install_node/" + checkNodeId;
+            checkSSH();
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
+
+async function checkSSH() {
+    if (!checkNodeId) return;
+    document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2 text-indigo-500"></i> Checking SSH Connection...';
+    document.getElementById('sshInstructions').classList.add('hidden');
+    document.getElementById('installBtn').disabled = true;
+    document.getElementById('installBtn').classList.add('opacity-50', 'cursor-not-allowed');
+    try {
+        const res = await fetch('/api/check_ssh/' + checkNodeId);
+        const json = await res.json();
+        if (json.status === 'success') {
+            document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500 mr-2 text-lg"></i> SSH Connected Successfully!';
+            document.getElementById('installBtn').disabled = false;
+            document.getElementById('installBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('installBtn').classList.add('hover:bg-indigo-700', 'hover:-translate-y-0.5');
+        } else {
+            document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500 mr-2 text-lg"></i> Connection Failed';
+            document.getElementById('sshErrorDetail').innerText = json.msg || "Please check SSH Keys or IP address.";
+            document.getElementById('sshInstructions').classList.remove('hidden');
+        }
+    } catch(e) {
+        document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500 mr-2 text-lg"></i> Error: Server Timeout';
+        document.getElementById('sshErrorDetail').innerText = "API is offline or taking too long to respond.";
+        document.getElementById('sshInstructions').classList.remove('hidden');
+    }
+}
+
+// 🚀 UI ကို လန်းလန်းလေး အဝိုင်းလည်အောင် ပြောင်းမည့် JavaScript အသစ်
+document.getElementById('installForm').addEventListener('submit', async function(e) {
+    e.preventDefault(); // Page ရပ်မသွားအောင် တားမည်
+    
+    let btn = document.getElementById('installBtn');
+    let cancelBtn = document.getElementById('cancelInstallBtn');
+    let statusText = document.getElementById('sshStatusText');
+    
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Installing Xray...';
+    btn.classList.add('opacity-80', 'cursor-not-allowed');
+    btn.classList.remove('hover:bg-indigo-700', 'hover:-translate-y-0.5');
+    cancelBtn.classList.add('hidden'); // Cancel ခလုတ်ကို ဖျောက်ထားမည်
+    
+    statusText.innerHTML = '<i class="fa-solid fa-cloud-arrow-down fa-bounce text-indigo-500 mr-2 text-lg"></i> <span class="text-indigo-600 font-black">Please wait...</span> Downloading & installing Xray Core. This takes 1-2 minutes.';
+    
+    try {
+        // Install request with explicit AJAX headers so backend returns JSON status.
+        const res = await fetch(this.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        });
+        let json = {};
+        try { json = await res.json(); } catch (_) {}
+        if (!res.ok || !json.success) {
+            throw new Error(json.error || `Install failed (HTTP ${res.status})`);
+        }
+        
+        // Install ပြီးသွားပါက အစိမ်းရောင် အမှန်ခြစ်ပြမည်
+        statusText.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500 mr-2 text-lg"></i> Xray Installation Complete!';
+        btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> Done';
+        btn.classList.remove('bg-indigo-600');
+        btn.classList.add('bg-emerald-500');
+        
+        // ၁ စက္ကန့် နေရင် Page ကို အလိုလို Refresh လုပ်ပေးမည်
+        setTimeout(() => {
+            window.location.href = '/'; 
+        }, 1000);
+    } catch (err) {
+        const msg = (err && err.message) ? err.message : 'Error occurred during installation.';
+        statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500 mr-2 text-lg"></i> ${msg}`;
+        btn.innerHTML = '<i class="fa-solid fa-rotate-right mr-2"></i> Retry Install';
+        btn.classList.remove('opacity-80', 'cursor-not-allowed');
+        btn.classList.add('bg-red-500', 'hover:bg-red-600');
+        cancelBtn.classList.remove('hidden');
+    }
+});
+
+async function refreshNodePing(nodeId) {
+    const el = document.getElementById('ping_' + nodeId);
+    if (!el) return;
+    try {
+        const res = await fetch('/api/ping/' + encodeURIComponent(nodeId));
+        const json = await res.json();
+        if (json.status === 'online') {
+            const value = (typeof json.latency_ms === 'number') ? `${json.latency_ms} ms` : 'Online';
+            el.className = 'inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 mb-6';
+            el.innerHTML = `<i class="fa-solid fa-wave-square"></i> Ping: ${value}`;
+        } else {
+            el.className = 'inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-red-100 bg-red-50 text-red-600 mb-6';
+            el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ping: Offline';
+        }
+    } catch (e) {
+        el.className = 'inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-red-100 bg-red-50 text-red-600 mb-6';
+        el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ping: Error';
+    }
+}
+
+function refreshAllNodePings() {
+    const nodeIds = [{% for node in nodes %}'{{ node.id }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+    nodeIds.forEach(refreshNodePing);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    refreshAllNodePings();
+    setInterval(refreshAllNodePings, 20000);
+    filterHistoryLogs();
+    const savedTab = localStorage.getItem('dashboardSectionTab') || 'auto';
+    switchDashboardSection(savedTab === 'custom' ? 'custom' : 'auto');
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeHistoryModal();
+        closeSearchModal();
+        closeDangerConfirmModal();
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Server Group</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        html { scroll-behavior: smooth; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .glass-dark { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(16px); }
+        .h-green { color: #10b981; } .h-blue { color: #3b82f6; } .h-yellow { color: #eab308; } .h-orange { color: #f97316; } .h-red { color: #ef4444; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] font-sans pb-16 text-slate-800">
+
+<nav class="glass border-b border-slate-200/60 sticky top-0 z-40 mb-10 shadow-sm">
+    <div class="max-w-7xl mx-auto px-6 lg:px-8 py-4 flex justify-between items-center">
+        <a href="/" class="text-sm font-bold text-slate-600 hover:text-purple-600 transition flex items-center bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
+            <i class="fa-solid fa-arrow-left mr-2"></i> Dashboard
+        </a>
+        <div class="relative dropdown-container">
+            <button onclick="toggleDropdown()" class="flex items-center gap-3 bg-white border border-slate-200 hover:border-purple-300 px-4 py-2 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                <div class="flex flex-col text-right">
+                    <span class="text-xs font-black text-slate-800">Admin</span>
+                    <span class="text-[10px] font-bold text-emerald-500">Online</span>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <i class="fa-solid fa-user-astronaut"></i>
+                </div>
+                <i class="fa-solid fa-chevron-down text-xs text-slate-400 ml-1"></i>
+            </button>
+            <div id="topMenu" class="hidden absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden transform origin-top-right transition-all">
+                <div class="p-2 space-y-1">
+                    <a href="/logout" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-3">
+                        <i class="fa-solid fa-right-from-bracket w-5 text-center"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 p-8 rounded-3xl shadow-lg text-white border border-white/10 relative overflow-hidden mb-10">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            <div class="w-full flex-1">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="bg-white/20 backdrop-blur-md font-mono text-[10px] px-3 py-1.5 rounded-lg uppercase tracking-widest border border-white/10">Auto Node ID: {{ group_id }}</span>
+                </div>
+                <h1 class="text-4xl font-black uppercase mb-2 tracking-tight">{{ group.name }}</h1>
+                
+                {% if group.api_domain %}
+                <div class="inline-block bg-white/20 backdrop-blur-md font-mono text-xs px-3 py-1.5 rounded-lg text-white border border-white/20 shadow-sm mt-1 mb-2">
+                    <i class="fa-solid fa-globe mr-2 opacity-70"></i> API: <span class="font-bold">{{ group.api_domain }}</span>
+                </div>
+                {% endif %}
+
+                <div class="flex flex-wrap items-center gap-3 mt-2">
+                    <p class="text-sm font-bold text-purple-100 flex items-center bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
+                        <i class="fa-solid fa-key mr-2 opacity-70"></i> Limit: {{ group.limit }} keys / server
+                    </p>
+                    <button onclick="document.getElementById('editGlobalLimitModal').classList.remove('hidden')" class="bg-white/20 hover:bg-white/40 w-8 h-8 rounded-lg flex items-center justify-center transition border border-white/10">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="w-full md:w-auto border-t md:border-t-0 md:border-l border-white/20 pt-6 md:pt-0 md:pl-8 text-left md:text-right">
+                <p class="text-[10px] font-black text-purple-200 uppercase tracking-widest mb-1">Total Group Traffic</p>
+                <p class="text-3xl font-black">{{ "%.2f"|format(group_used_gb) }} <span class="text-base opacity-80">GB</span></p>
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-3 items-center justify-start md:justify-end relative z-10 w-full mt-6 pt-6 border-t border-white/10">
+            <button onclick="document.getElementById('addServerModal').classList.remove('hidden')" class="w-full sm:w-auto bg-white/10 hover:bg-white/20 px-5 py-3 rounded-xl text-sm font-bold transition flex items-center justify-center border border-white/20">
+                <i class="fa-solid fa-server mr-2"></i> Add Server
+            </button>
+            <button onclick="document.getElementById('addUserModal').classList.remove('hidden')" class="w-full sm:w-auto bg-white text-purple-600 hover:bg-purple-50 px-8 py-3 rounded-xl text-sm font-black transition justify-center flex items-center shadow-lg shadow-purple-900/20 hover:-translate-y-0.5">
+                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate Keys
+            </button>
+            <form action="/resync_group_to_subpanel/{{ group_id }}" method="POST" onsubmit="return confirm('Push node update for all servers in this group to external panel now?');" class="w-full sm:w-auto m-0">
+                <button type="submit" class="w-full bg-indigo-500/90 hover:bg-indigo-600 text-white px-5 py-3 rounded-xl text-sm font-black transition flex items-center justify-center border border-indigo-300/30">
+                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Sync New Nodes Update
+                </button>
+            </form>
+            <form action="/delete_auto_group/{{ group_id }}" method="POST" onsubmit="return confirmDeleteGroupById('{{ group_id }}');" class="w-full sm:w-auto m-0">
+                <button type="submit" class="w-full bg-red-500/90 hover:bg-red-600 text-white px-5 py-3 rounded-xl text-sm font-black transition flex items-center justify-center border border-red-300/30">
+                    <i class="fa-solid fa-trash-can mr-2"></i> Delete Auto Group
+                </button>
+            </form>
+        </div>
+        <div class="mt-4 bg-black/20 border border-white/10 rounded-2xl p-4 flex flex-col gap-1.5 text-xs">
+            <div class="flex items-center justify-between gap-2">
+                <p class="text-[10px] font-black text-purple-200 uppercase tracking-widest">Last Sync-New-Server Version</p>
+                <button type="button" onclick="refreshSyncNewServerStatus()" class="text-[10px] font-black bg-white/15 hover:bg-white/25 text-white px-2.5 py-1 rounded-lg border border-white/15 transition">Refresh</button>
+            </div>
+            <p id="syncVersionLine" class="font-mono font-black text-white break-all">version: -</p>
+            <p id="syncAtLine" class="text-purple-100/90 font-bold">at: -</p>
+            <p id="syncStatusLine" class="text-purple-100/90 font-bold">status: idle</p>
+        </div>
+    </div>
+
+    <div class="flex gap-2 overflow-x-auto whitespace-nowrap mb-8 bg-slate-200/50 p-1.5 rounded-2xl w-fit">
+        <button id="groupTabBtn-servers" onclick="switchGroupTab('servers')" class="px-6 py-2.5 text-sm font-black rounded-xl transition-all shadow-sm bg-white text-purple-600">
+            <i class="fa-solid fa-server mr-2"></i> Node Servers
+        </button>
+        <button id="groupTabBtn-keys" onclick="switchGroupTab('keys')" class="px-6 py-2.5 text-sm font-black rounded-xl transition-all hover:bg-slate-200/50 text-slate-500">
+            <i class="fa-solid fa-key mr-2"></i> Generated Keys ({{ users|length }})
+        </button>
+    </div>
+
+    <div id="group-tab-servers">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+            {% for s in server_stats %}
+            <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col relative group h-full hover:shadow-md transition-all hover:-translate-y-1 hover:border-purple-200">
+                
+                <button type="button" onclick="openHealthModal('{{ s.id }}', '{{ s.health }}')" class="absolute top-5 right-5 h-{{ s.health }} bg-slate-50 px-2 py-1 rounded text-[10px] font-black uppercase flex items-center gap-1 border border-slate-100 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all hover:scale-105">
+                    <i class="fa-solid fa-circle text-[6px]"></i> {{ s.health }}
+                </button>
+                
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-sm font-black text-slate-800 tracking-tight">{{ s.name or s.id }}</span>
+                    <span class="text-[10px] font-mono font-bold text-slate-400">({{ s.id }})</span>
+                    <button type="button" onclick='openEditServerName({{ s.id|tojson }}, {{ (s.name or s.id)|tojson }})' class="text-sky-400 hover:text-sky-600 bg-sky-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="Edit Server Name">
+                        <i class="fa-solid fa-signature text-[10px]"></i>
+                    </button>
+                    <button type="button" onclick="openEditLimit('{{ s.id }}', '{{ s.limit }}')" class="text-purple-400 hover:text-purple-600 bg-purple-50 w-7 h-7 rounded-lg flex items-center justify-center transition-colors" title="Edit Custom Key Limit">
+                        <i class="fa-solid fa-pen text-[10px]"></i>
+                    </button>
+                </div>
+                
+                <span class="text-xs font-mono font-bold text-slate-400 mb-6 flex items-center gap-1.5">
+                    <i class="fa-solid fa-globe text-purple-300"></i> {{ s.ip }}
+                </span>
+                <div class="flex items-center gap-3 mb-6">
+                    <div id="ping_{{ s.id }}" class="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-500">
+                        <i class="fa-solid fa-wave-square"></i> Ping: ...
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border {% if s.active > 0 %}border-emerald-200 bg-emerald-50 text-emerald-600{% else %}border-slate-200 bg-slate-50 text-slate-500{% endif %}">
+                        <i class="fa-solid fa-user-check"></i> Active: {{ s.active }} / {{ s.count }}
+                    </div>
+                </div>
+                
+                <div class="mb-4 grid grid-cols-4 gap-2">
+                    <form action="/restart_xray/{{ s.id }}" method="POST" class="m-0">
+                        <button type="submit" class="w-full bg-slate-50 hover:bg-purple-50 border border-slate-100 text-purple-600 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest" title="Restart Xray">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </form>
+                    <form action="/fix_node_logs/{{ s.id }}" method="POST" class="m-0" onsubmit="return confirm('Enable IP Tracker & Logs for this server?');">
+                        <button type="submit" class="w-full bg-slate-50 hover:bg-purple-50 border border-slate-100 text-purple-600 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest" title="Fix IP Tracker">
+                            <i class="fa-solid fa-wrench"></i> Fix
+                        </button>
+                    </form>
+                    <a href="/node/{{ s.id }}" class="block text-center bg-purple-50 hover:bg-purple-600 hover:text-white border border-purple-100 text-purple-600 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest shadow-sm" title="Open Panel">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                    <form action="/reinstall_node/{{ s.id }}" method="POST" class="m-0" onsubmit="return confirm('Reinstall Xray and reprovision keys on {{ s.id }} now?');">
+                        <button type="submit" class="w-full bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-600 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest" title="Reinstall Node">
+                            <i class="fa-solid fa-screwdriver-wrench"></i>
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="mb-6 flex gap-2">
+                    <button type="button" onclick="openTbModal('{{ s.id }}', '{{ s.limit_tb }}')" class="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest">
+                        <i class="fa-solid fa-tachometer-alt"></i> Limit
+                    </button>
+                    <form action="/resync_server_to_subpanel/{{ group_id }}/{{ s.id }}" method="POST" onsubmit="return confirm('Push all existing users to this server on external panel?');" class="flex-1 m-0">
+                        <button type="submit" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Sync
+                        </button>
+                    </form>
+                    <form action="/reset_node_traffic/{{ s.id }}" method="POST" onsubmit="return confirm('Reset traffic to 0 for {{ s.id }}?');" class="flex-1 m-0">
+                        <button type="submit" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-600 text-[10px] font-black py-2.5 rounded-xl transition uppercase tracking-widest">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </form>
+                    <form action="/delete_server_from_group/{{ group_id }}/{{ s.id }}" method="POST" onsubmit="return confirm('Remove server?');" class="m-0">
+                        <button type="submit" class="bg-red-50 hover:bg-red-500 hover:text-white text-red-500 w-9 h-full rounded-xl transition-colors flex items-center justify-center">
+                            <i class="fa-solid fa-trash-can text-[10px]"></i>
+                        </button>
+                    </form>
+                </div>
+                <form action="/resync_server_to_subpanel/{{ group_id }}/{{ s.id }}" method="POST" onsubmit="return confirm('Push all existing users to this server on external panel?');" class="m-0 mb-4">
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black py-2.5 rounded-xl transition uppercase tracking-widest shadow-sm">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Sync Users To External Panel
+                    </button>
+                </form>
+                
+                <div class="mt-auto space-y-4 border-t border-slate-50 pt-4">
+                    <div>
+                        <div class="flex justify-between text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                            <span class="{% if s.is_alarm %}text-red-500{% endif %}">{{ "%.2f"|format(s.used_gb) }} GB</span>
+                            <span>Limit: {{ s.limit_tb }} TB</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-100 rounded-full">
+                            <div class="h-full {% if s.is_alarm %}bg-red-500{% else %}bg-purple-500{% endif %} rounded-full" style="width: {{ (s.used_gb / (s.limit_tb * 1024) * 100) if s.limit_tb > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-widest">
+                            <span class="{% if s.count >= s.limit %}text-red-500{% endif %}">{{ s.count }} Keys</span>
+                            <span>Max: {{ s.limit }}</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-100 rounded-full">
+                            <div class="h-full {% if s.count >= s.limit %}bg-red-500{% else %}bg-indigo-500{% endif %} rounded-full" style="width: {{ (s.count / s.limit * 100) if s.limit > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-full py-16 text-center bg-white rounded-3xl border border-slate-200 border-dashed">
+                <div class="w-16 h-16 bg-purple-50 text-purple-300 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+                    <i class="fa-solid fa-server"></i>
+                </div>
+                <p class="text-sm font-bold text-slate-500">No servers added to this auto node yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="group-tab-keys" class="hidden">
+        <form id="bulkForm" action="/bulk_delete" method="POST" onsubmit="return confirm('Delete selected keys?');">
+            
+            <div id="bulkActions" class="hidden mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex justify-between items-center shadow-sm">
+                <span class="text-sm font-black text-red-600">
+                    <span id="selCount" class="bg-white px-2 py-0.5 rounded shadow-sm mr-1">0</span> keys selected
+                </span>
+                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md transition hover:-translate-y-0.5">
+                    <i class="fa-solid fa-trash-can mr-2"></i> Delete Selected
+                </button>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead>
+                        <tr class="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            <th class="p-6 w-10 text-center"><input type="checkbox" id="selectAll" class="w-4 h-4 cursor-pointer accent-purple-600 rounded" onclick="document.querySelectorAll('input[name=\\'usernames\\']').forEach(c=>c.checked=this.checked); updateBulkUI();"></th>
+                            <th class="p-6">Server / Switch</th> <th class="p-6">Global ID</th>
+                            <th class="p-6">Profile</th>
+                            <th class="p-6">Traffic Usage</th>
+                            <th class="p-6">Expiry</th>
+                            <th class="p-6 text-center">VPN & API Keys</th> <th class="p-6 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for u in users %}
+                        <tr class="hover:bg-slate-50/80 transition-colors {% if u.is_blocked %}opacity-70 bg-red-50/30{% endif %}">
+                            <td class="p-6 text-center">
+                                <input type="checkbox" name="usernames" value="{{ u.db_key }}" class="w-4 h-4 cursor-pointer accent-purple-600 rounded" onchange="updateBulkUI()" data-display="{{ u.username }}">
+                            </td>
+                            
+                            <td class="p-6">
+                                <div class="mb-2">
+                                    <span class="bg-purple-50 text-purple-600 font-mono text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-widest border border-purple-100">{{ u.node }}</span>
+                                </div>
+                                <form action="/switch_user_node/{{ u.db_key }}" method="POST" class="m-0 flex items-center gap-1">
+                                    <select name="target_node" class="bg-white border border-slate-200 text-[10px] font-bold py-1 px-2 rounded focus:outline-none text-slate-600 w-20" required>
+                                        {% for s in server_stats %}
+                                            <option value="{{ s.id }}" {% if u.node == s.id %}selected{% endif %}>{{ s.name or s.id }} ({{ s.id }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white px-2 py-1 rounded transition-colors text-[10px] font-black uppercase" title="Switch Server">
+                                        Go
+                                    </button>
+                                </form>
+                            </td>
+
+                            <td class="p-6 text-slate-400 font-black text-xs font-mono bg-slate-50/50">
+                                #{{ u.key_id if u.key_id else loop.index }}
+                            </td>
+                            <td class="p-6">
+                                <div class="flex items-center gap-4">
+                                    {% if u.is_blocked %}
+                                    <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center"><i class="fa-solid fa-ban"></i></div>
+                                    {% elif u.is_active %}
+                                    <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center relative"><i class="fa-solid fa-bolt text-sm"></i></div>
+                                    {% elif u.used_bytes == 0 %}
+                                    <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center"><i class="fa-solid fa-hourglass-half"></i></div>
+                                    {% else %}
+                                    <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center"><i class="fa-solid fa-user text-sm"></i></div>
+                                    {% endif %}
+                                    
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <p class="font-black text-slate-900 text-sm {% if u.is_blocked %}line-through{% endif %}">{{ u.username }}</p>
+                                            
+                                            {% if u.protocol == 'v2' %}
+                                            <span class="bg-blue-100 text-blue-600 text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">VLESS</span>
+                                            {% else %}
+                                            <span class="bg-purple-100 text-purple-600 text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">SS</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        {% if u.is_blocked %}<p class="text-[10px] font-black text-red-500 uppercase tracking-widest mt-0.5">🚫 Blocked</p>
+                                        {% elif u.is_active %}<p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-0.5">🟢 Online</p>
+                                        {% elif u.used_bytes == 0 %}<p class="text-[10px] font-black text-amber-500 uppercase tracking-widest mt-0.5">🟡 Pending</p>
+                                        {% else %}<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">⚪ Offline</p>{% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-6">
+                                <div class="flex flex-col">
+                                    <span class="font-black text-slate-700 text-sm tracking-tight">{{ u.used_gb_str }} <span class="text-xs text-slate-400">/ {{ u.total_gb }} GB</span></span>
+                                    <div class="w-28 h-2 bg-slate-100 rounded-full mt-2 overflow-hidden shadow-inner">
+                                        <div class="h-full bg-purple-500 rounded-full" style="width: {{ (u.used_bytes / (u.total_gb * 1024**3) * 100) if u.total_gb > 0 else 0 }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-6 font-mono text-xs font-bold text-slate-500">{{ u.expire_date }}</td>
+                            
+                            <td class="p-6 text-center flex flex-col gap-2 items-center justify-center">
+                                <div>
+                                    <textarea id="k_{{ loop.index }}" class="hidden">{{ u.actual_key }}</textarea>
+                                    <button type="button" onclick="copyK('k_{{ loop.index }}')" class="w-28 bg-slate-100 hover:bg-purple-600 hover:text-white text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm"><i class="fa-solid fa-key mr-1"></i> Raw Key</button>
+                                </div>
+                                {% if group.api_domain and u.token %}
+                                <div>
+                                    <textarea id="api_{{ loop.index }}" class="hidden">ssconf://{{ group.api_domain }}/{{ u.token }}.json#{{ u.username }}</textarea>
+                                    <button type="button" onclick="copyK('api_{{ loop.index }}')" class="w-28 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm"><i class="fa-solid fa-link mr-1"></i> API Link</button>
+                                </div>
+                                {% endif %}
+                            </td>
+
+                            <td class="p-6 text-center">
+                                <div class="flex justify-center gap-3 items-center">
+                                    <button type="button" onclick="openIpModal('{{ u.db_key }}')" class="bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors" title="View Active Connections">
+                                        <i class="fa-solid fa-location-dot text-xs"></i>
+                                    </button>
+                                    
+                                    <label class="relative inline-flex items-center cursor-pointer mx-1" title="Block User">
+                                        <input type="checkbox" class="sr-only peer" {% if not u.is_blocked %}checked{% endif %} onchange="submitToggle('{{ u.db_key }}')">
+                                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                                    </label>
+                                    
+                                    <button type="button" onclick="openRenew('{{ u.db_key }}')" class="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors" title="Renew Key"><i class="fa-solid fa-rotate text-xs"></i></button>
+                                    
+                                    <button type="button" onclick="openM('{{ u.db_key }}', '{{ u.get('protocol', 'v2') }}', '{{ u.get('port', '443') }}', '{{ u.get('uuid', u.get('password', '')) }}', '{{ u.total_gb }}', '{{ u.expire_date }}')" class="bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors" title="Edit Profile Details">
+                                        <i class="fa-solid fa-pen text-xs"></i>
+                                    </button>
+                                    
+                                    <button type="button" onclick="if(confirm('Delete {{ u.username }}?')) submitDelete('{{ u.db_key }}');" class="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center transition-colors" title="Delete Key"><i class="fa-solid fa-trash text-xs"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<form id="actionToggleForm" action="" method="POST" class="hidden"></form>
+<form id="actionDeleteForm" action="" method="POST" class="hidden"></form>
+
+<div id="addServerModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-6 text-slate-800">Add Node Server</h2>
+        <form action="/add_server_to_group/{{ group_id }}" method="POST">
+            <div class="space-y-4 mb-8">
+                <input type="text" name="node_id" placeholder="Node ID (e.g. auto_01)" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <input type="text" name="node_name" placeholder="Node Name (e.g. SG Premium 01)" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <input type="text" name="node_ip" placeholder="Server IP Address" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <div class="relative">
+                    <input type="number" name="limit" value="{{ group.limit }}" class="w-full bg-purple-50/50 border border-purple-100 p-3.5 rounded-xl font-mono text-sm font-black text-purple-600 pr-24 focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-purple-400 uppercase tracking-wider">Keys / Node</span>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('addServerModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Add Server</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editGlobalLimitModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-[400px] shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800">Edit Global Limit</h2>
+        <p class="text-xs text-slate-500 mb-6 font-bold leading-relaxed">This changes the limit for <span class="text-purple-600 uppercase">ALL</span> servers in this group. Excess keys will be rebalanced automatically.</p>
+        <form action="/edit_group_limit/{{ group_id }}" method="POST">
+            <div class="relative mb-8">
+                <input type="number" name="limit" value="{{ group.limit }}" class="w-full bg-purple-50 border border-purple-200 p-4 rounded-xl font-mono text-lg font-black text-purple-600 pr-24 focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-purple-400 uppercase tracking-wider">Keys / Node</span>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('editGlobalLimitModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Update All</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editLimitModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800">Edit Server Limit</h2>
+        <p class="text-xs text-slate-500 mb-6 font-bold leading-relaxed" id="editLimitDesc"></p>
+        <form id="editLimitForm" method="POST">
+            <div class="relative mb-8">
+                <input type="number" name="limit" id="editLimitInput" class="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-mono text-lg font-black text-purple-600 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">Keys</span>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('editLimitModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editServerNameModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800">Edit Server Name</h2>
+        <p class="text-xs text-slate-500 mb-6 font-bold leading-relaxed" id="editServerNameDesc"></p>
+        <form id="editServerNameForm" method="POST">
+            <div class="mb-8">
+                <input type="text" name="node_name" id="editServerNameInput" class="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl text-sm font-bold text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-100 transition" required>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('editServerNameModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-sky-200 transition">Update Name</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="setTbModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800">Traffic Limit</h2>
+        <p class="text-xs text-slate-500 mb-6 font-bold">Set TB max limit for <span id="tbNodeId" class="text-purple-600 uppercase font-black"></span></p>
+        <form id="setTbForm" method="POST">
+            <div class="relative mb-8">
+                <input type="number" step="0.1" name="limit_tb" id="tbInput" class="w-full bg-slate-50 border border-slate-200 p-4 rounded-xl font-mono text-sm font-black text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">TB</span>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('setTbModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Save Limit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="addUserModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-[420px] shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-6 text-slate-800">Auto-Generate Keys</h2>
+        <form action="/add_user_auto" method="POST">
+            <input type="hidden" name="group_id" value="{{ group_id }}">
+            <div class="bg-slate-50 p-1.5 rounded-2xl mb-5 flex">
+                <select id="creation_mode" name="creation_mode" onchange="toggleMode()" class="w-full bg-transparent p-2 text-sm font-bold text-slate-700 outline-none cursor-pointer">
+                    <option value="single">Single Profile</option>
+                    <option value="list">Bulk List</option>
+                    <option value="pattern">Auto-Numbering</option>
+                </select>
+            </div>
+            
+            <div id="mode_single" class="block mb-5">
+                <input type="text" name="single_username" placeholder="Username" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-100 transition">
+            </div>
+            
+            <div id="mode_list" class="hidden mb-5">
+                <textarea name="list_usernames" rows="3" placeholder="Paste comma separated usernames here..." class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-100 transition"></textarea>
+            </div>
+            
+            <div id="mode_pattern" class="hidden mb-5 grid grid-cols-3 gap-3">
+                <input type="text" name="base_name" placeholder="Prefix" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-100">
+                <input type="number" name="start_num" value="1" title="Start Number" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm font-mono text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-100">
+                <input type="number" name="qty" value="5" title="Quantity" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm font-mono text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-100">
+            </div>
+            
+            <div class="mb-5">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Protocol Type</label>
+                <select name="protocol" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-100">
+                    <option value="v2">VLESS (WS)</option>
+                    <option value="out">Shadowsocks</option>
+                </select>
+            </div>
+            
+            <div class="flex gap-4 mb-8">
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Traffic (GB)</label>
+                    <div class="relative">
+                        <input type="number" step="0.1" name="total_gb" value="50" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm font-mono font-black text-purple-600 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-100">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-300">GB</span>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Validity</label>
+                    <div class="relative">
+                        <input type="number" name="expire_days" value="30" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl text-sm font-mono font-black text-purple-600 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-100" required>
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-300">Days</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('addUserModal').classList.add('hidden')" class="px-5 py-3 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-xl font-bold shadow-md shadow-purple-200 transition hover:-translate-y-0.5"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate Keys</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="m" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[80] transition-all">
+    <div class="bg-white rounded-3xl p-8 w-[400px] shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-6 text-slate-800 flex items-center gap-2"><i class="fa-solid fa-user-pen text-blue-500"></i> Edit Profile</h2>
+        <form id="ef" method="POST">
+            <input type="hidden" name="node_name" value="{{ node_id }}">
+            
+            <div class="flex gap-3 mb-4">
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Username</label>
+                    <input type="text" id="mu_display" class="w-full bg-slate-100 border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-bold text-slate-500 cursor-not-allowed" disabled>
+                </div>
+                <div class="w-24">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Port</label>
+                    <input type="text" id="mp_display" class="w-full bg-slate-100 border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-bold text-slate-500 cursor-not-allowed text-center" disabled>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">UUID / Password</label>
+                <div class="relative">
+                    <input type="text" name="uuid" id="muuid" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-black text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 transition pr-10" required>
+                    <button type="button" onclick="generateUUID()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition" title="Generate New Key"><i class="fa-solid fa-shuffle"></i></button>
+                </div>
+                <p class="text-[9px] font-bold text-amber-500 mt-1.5 ml-1"><i class="fa-solid fa-circle-info"></i> Changing this will auto-sync with the server.</p>
+            </div>
+
+            <div class="flex gap-3 mb-8">
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Traffic (GB)</label>
+                    <input type="number" step="0.1" name="total_gb" id="mg" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 transition">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Expiry Date</label>
+                    <input type="date" name="expire_date" id="md" class="w-full bg-white border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-100 transition">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+                <button type="button" onclick="closeM()" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-blue-200 transition hover:-translate-y-0.5">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="rm" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-4 text-emerald-600 flex items-center gap-2"><i class="fa-solid fa-rotate"></i> Renew Key</h2>
+        <p class="text-xs font-bold text-slate-500 mb-6 bg-emerald-50 p-3 rounded-lg border border-emerald-100 truncate"><span class="text-emerald-600 uppercase font-black tracking-wider mr-1">User:</span> <span id="ru"></span></p>
+        <form id="rf" method="POST">
+            <input type="hidden" name="node_name" value="{{ node_id }}">
+            <div class="flex gap-3 mb-8">
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Add Traffic</label>
+                    <div class="relative">
+                        <input type="number" step="0.1" name="add_gb" value="50" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-black text-emerald-600 pr-8 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">GB</span>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Add Days</label>
+                    <div class="relative">
+                        <input type="number" name="add_days" value="30" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm font-black text-emerald-600 pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">Days</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeRenew()" class="px-4 py-2 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-emerald-200 transition">Renew Key</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="setHealthModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-80 shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-6 text-slate-800">Set Health Status</h2>
+        <form id="setHealthForm" method="POST">
+            <div class="space-y-2 mb-8">
+                <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer bg-slate-50 border border-slate-100 hover:border-emerald-200 transition">
+                    <input type="radio" name="health" value="green" class="w-4 h-4 text-emerald-600">
+                    <span class="h-green font-black text-xs uppercase">Green (Good)</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer bg-slate-50 border border-slate-100 hover:border-blue-200 transition">
+                    <input type="radio" name="health" value="blue" class="w-4 h-4 text-blue-600">
+                    <span class="h-blue font-black text-xs uppercase">Blue (Maintain)</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer bg-slate-50 border border-slate-100 hover:border-yellow-200 transition">
+                    <input type="radio" name="health" value="yellow" class="w-4 h-4 text-yellow-500">
+                    <span class="h-yellow font-black text-xs uppercase">Yellow (Slow)</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer bg-slate-50 border border-slate-100 hover:border-orange-200 transition">
+                    <input type="radio" name="health" value="orange" class="w-4 h-4 text-orange-500">
+                    <span class="h-orange font-black text-xs uppercase">Orange (Critical)</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl cursor-pointer bg-slate-50 border border-slate-100 hover:border-red-200 transition">
+                    <input type="radio" name="health" value="red" class="w-4 h-4 text-red-600">
+                    <span class="h-red font-black text-xs uppercase">Red (Dead)</span>
+                </label>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('setHealthModal').classList.add('hidden')" class="px-5 py-2 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Save Status</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="installPromptModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[60]">
+    <div class="bg-white rounded-3xl p-8 w-[450px] shadow-2xl text-center border border-slate-100">
+        <div class="w-20 h-20 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner"><i class="fa-solid fa-server"></i></div>
+        <h2 class="text-2xl font-black mb-2 text-slate-800">Server Added!</h2>
+        <p class="text-slate-500 text-sm font-bold mb-6">Let's setup Xray-Core automatically.</p>
+        <div id="sshCheckArea" class="mb-8 p-5 rounded-2xl bg-slate-50/80 border border-slate-200/60 text-sm">
+            <p id="sshStatusText" class="font-bold text-slate-600"><i class="fa-solid fa-spinner fa-spin mr-2 text-purple-500"></i> Checking SSH Connection...</p>
+            <div id="sshInstructions" class="hidden mt-4 text-left border-t border-slate-200/80 pt-4">
+                <p class="text-red-500 font-black text-sm mb-2 uppercase tracking-wide"><i class="fa-solid fa-triangle-exclamation mr-1"></i> SSH Not Connected</p>
+                <p class="text-slate-600 text-xs font-bold leading-relaxed">Please add this Master Server's Public SSH Key to the new Node Server's <code>~/.ssh/authorized_keys</code> file to proceed.</p>
+                <button type="button" onclick="checkSSH()" class="mt-4 w-full bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-xl text-xs font-bold transition shadow-md shadow-slate-200">Check Connection Again</button>
+            </div>
+        </div>
+        <form id="installForm" method="POST" onsubmit="document.getElementById('installBtn').innerHTML = '<i class=\'fa-solid fa-spinner fa-spin mr-2\'></i> Installing Core...'; document.getElementById('installBtn').classList.add('opacity-50', 'cursor-not-allowed');">
+            <div class="flex gap-3 justify-center">
+                <button type="button" onclick="document.getElementById('installPromptModal').classList.add('hidden')" class="px-6 py-3 font-bold text-slate-500 hover:text-slate-800 transition bg-slate-100 hover:bg-slate-200 rounded-xl w-full">I'll do it later</button>
+                <button type="submit" id="installBtn" disabled class="bg-purple-600 text-white px-8 py-3 rounded-xl font-bold opacity-50 cursor-not-allowed transition w-full shadow-md shadow-purple-200">Install Xray</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="ipModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-[90] transition-all">
+    <div class="bg-white rounded-3xl p-8 w-[450px] shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800 flex items-center gap-2"><i class="fa-solid fa-location-dot text-purple-500"></i> Connection History</h2>
+        <p class="text-xs font-bold text-slate-500 mb-6 bg-slate-50 p-2.5 rounded-lg truncate border border-slate-100">User: <span id="ipModalUser" class="text-purple-600 font-black tracking-wider ml-1"></span></p>
+        <div id="ipModalContent" class="space-y-2 min-h-[150px] max-h-[350px] overflow-y-auto pr-1">
+            </div>
+        <div class="mt-6 flex justify-end border-t border-slate-100 pt-4">
+            <button type="button" onclick="document.getElementById('ipModal').classList.add('hidden')" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-2.5 rounded-xl font-bold transition shadow-sm">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDropdown() {
+    document.getElementById('topMenu').classList.toggle('hidden');
+}
+
+window.onclick = function(e) {
+    if (!e.target.closest('.dropdown-container')) {
+        let d = document.getElementById("topMenu");
+        if (d && !d.classList.contains('hidden')) {
+            d.classList.add('hidden');
+        }
+    }
+}
+
+function updateBulkUI() {
+    const c = document.querySelectorAll('input[name="usernames"]:checked').length;
+    const d = document.getElementById('bulkActions');
+    if (c > 0) {
+        d.classList.remove('hidden');
+        document.getElementById('selCount').innerText = c;
+    } else {
+        d.classList.add('hidden');
+    }
+}
+
+function confirmDeleteGroupById(groupId) {
+    const typed = prompt(`Type Auto Group ID to delete:\n${groupId}`);
+    if (typed === null) return false;
+    if ((typed || '').trim().toLowerCase() !== String(groupId || '').trim().toLowerCase()) {
+        alert('Auto Group ID does not match. Delete cancelled.');
+        return false;
+    }
+    return confirm(`Final confirm: delete Auto Group [${groupId}]?`);
+}
+
+function switchGroupTab(tab) {
+    ['servers','keys'].forEach(t => {
+        document.getElementById('group-tab-'+t).classList.add('hidden');
+        document.getElementById('groupTabBtn-'+t).className="px-6 py-2.5 text-sm font-black rounded-xl transition-all hover:bg-slate-200/50 text-slate-500";
+    });
+    document.getElementById('group-tab-'+tab).classList.remove('hidden');
+    document.getElementById('groupTabBtn-'+tab).className="px-6 py-2.5 text-sm font-black rounded-xl transition-all shadow-sm bg-white text-purple-600";
+}
+
+async function refreshSyncNewServerStatus() {
+    const vEl = document.getElementById('syncVersionLine');
+    const aEl = document.getElementById('syncAtLine');
+    const sEl = document.getElementById('syncStatusLine');
+    if (!vEl || !aEl || !sEl) return;
+    try {
+        const res = await fetch('/api/internal/sync-new-server-status?group_id={{ group_id }}');
+        const json = await res.json();
+        const d = (json && json.sync_new_server) ? json.sync_new_server : {};
+        const version = d.last_version || '-';
+        const at = d.last_attempt_at || '-';
+        const code = d.last_http_code ? ` (${d.last_http_code})` : '';
+        const status = (d.last_status || 'idle') + code;
+        const url = d.last_url ? ` -> ${d.last_url}` : '';
+        vEl.innerText = `version: ${version}`;
+        aEl.innerText = `at: ${at}`;
+        sEl.innerText = `status: ${status}${url}`;
+    } catch (e) {
+        sEl.innerText = 'status: unable_to_load';
+    }
+}
+
+let checkNodeId = '';
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const newlyAdded = urlParams.get('newly_added');
+    if (newlyAdded) {
+        checkNodeId = newlyAdded;
+        let modal = document.getElementById('installPromptModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.getElementById('installForm').action = "/install_node/" + checkNodeId;
+            checkSSH();
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    refreshSyncNewServerStatus();
+    setInterval(refreshSyncNewServerStatus, 10000);
+});
+
+async function checkSSH() {
+    if (!checkNodeId) return;
+    document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2 text-purple-500"></i> Checking SSH Connection...';
+    document.getElementById('sshInstructions').classList.add('hidden');
+    document.getElementById('installBtn').disabled = true;
+    document.getElementById('installBtn').classList.add('opacity-50', 'cursor-not-allowed');
+    try {
+        const res = await fetch('/api/check_ssh/' + checkNodeId);
+        const json = await res.json();
+        if (json.status === 'success') {
+            document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500 mr-2 text-lg"></i> SSH Connected Successfully!';
+            document.getElementById('installBtn').disabled = false;
+            document.getElementById('installBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('installBtn').classList.add('hover:bg-purple-700', 'hover:-translate-y-0.5');
+        } else {
+            throw new Error();
+        }
+    } catch(e) {
+        document.getElementById('sshStatusText').innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500 mr-2 text-lg"></i> SSH Connection Failed';
+        document.getElementById('sshInstructions').classList.remove('hidden');
+    }
+}
+
+function openTbModal(nid, cl) {
+    document.getElementById('tbNodeId').innerText = nid;
+    document.getElementById('tbInput').value = cl;
+    document.getElementById('setTbForm').action = "/set_node_traffic/" + nid;
+    document.getElementById('setTbModal').classList.remove('hidden');
+}
+
+function openEditLimit(nid, cl) {
+    document.getElementById('editLimitDesc').innerHTML = `Node: <span class="text-purple-600 font-black uppercase tracking-wider">${nid}</span><br>If you decrease this limit, excess keys will be automatically migrated to other servers in this group.`;
+    document.getElementById('editLimitInput').value = cl;
+    document.getElementById('editLimitForm').action = "/edit_server_limit/{{ group_id }}/" + nid;
+    document.getElementById('editLimitModal').classList.remove('hidden');
+}
+
+function openEditServerName(nid, currentName) {
+    document.getElementById('editServerNameDesc').innerHTML = `Node ID: <span class="text-sky-600 font-black uppercase tracking-wider">${nid}</span>`;
+    document.getElementById('editServerNameInput').value = currentName || nid;
+    document.getElementById('editServerNameForm').action = "/edit_server_name/{{ group_id }}/" + nid;
+    document.getElementById('editServerNameModal').classList.remove('hidden');
+}
+
+function openHealthModal(nid, ch) {
+    document.getElementById('healthNodeId').innerText = nid;
+    let f = document.getElementById('setHealthForm');
+    f.action = "/set_node_health/" + nid;
+    f.querySelectorAll('input[name="health"]').forEach(r => {
+        r.checked = (r.value === ch);
+    });
+    document.getElementById('setHealthModal').classList.remove('hidden');
+}
+
+async function openIpModal(username) {
+    document.getElementById('ipModalUser').innerText = username;
+    document.getElementById('ipModalContent').innerHTML = '<div class="flex flex-col items-center justify-center py-8 text-slate-400"><i class="fa-solid fa-circle-notch fa-spin text-3xl mb-4 text-purple-500"></i><p class="text-xs font-bold uppercase tracking-widest animate-pulse">Scanning Server & History...</p></div>';
+    document.getElementById('ipModal').classList.remove('hidden');
+    try {
+        const res = await fetch('/api/user_ip/' + username);
+        const json = await res.json();
+        let html = '';
+        if(json.status === 'success' && json.data.length > 0) {
+            html += '<div class="flex justify-between items-center px-2 mb-2"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">IP & Location</span><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Seen</span></div>';
+            json.data.forEach(item => {
+                html += `<div class="bg-slate-50 border border-slate-100 p-3 rounded-2xl flex items-center justify-between gap-3 hover:bg-purple-50 transition-colors mb-2">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <div class="w-10 h-10 rounded-xl bg-white text-purple-500 flex items-center justify-center shrink-0 shadow-sm border border-slate-100"><i class="fa-solid fa-globe"></i></div>
+                                <div class="truncate">
+                                    <p class="text-sm font-black text-slate-800 font-mono tracking-tight">${item.ip}</p>
+                                    <p class="text-[10px] font-bold text-slate-500 truncate mt-0.5" title="${item.location}">${item.location}</p>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <span class="text-[10px] font-black text-purple-600 bg-purple-100/50 px-2.5 py-1 rounded-lg border border-purple-100/50 shadow-sm block mb-1">Time</span>
+                                <p class="text-[9px] font-bold text-slate-500">${item.last_seen}</p>
+                            </div>
+                         </div>`;
+            });
+        } else if (json.status === 'success') {
+            html = '<div class="text-center py-8"><div class="w-14 h-14 bg-slate-100 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner"><i class="fa-solid fa-ghost"></i></div><p class="text-xs font-bold text-slate-500 uppercase tracking-widest">No Connection History</p></div>';
+        } else {
+            html = '<p class="text-xs font-bold text-red-500 text-center py-6 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><i class="fa-solid fa-triangle-exclamation text-lg block mb-2"></i> Data Error</p>';
+        }
+        document.getElementById('ipModalContent').innerHTML = html;
+    } catch(e) {
+        document.getElementById('ipModalContent').innerHTML = '<p class="text-xs font-bold text-red-500 text-center py-6 bg-red-50 rounded-2xl border border-red-100 shadow-sm"><i class="fa-solid fa-wifi text-lg block mb-2"></i> Server Timeout</p>';
+    }
+}
+
+function copyK(id) {
+    var t = document.getElementById(id);
+    if (!t.value) return;
+    var d = document.createElement("textarea");
+    document.body.appendChild(d);
+    d.value = t.value;
+    d.select();
+    document.execCommand("copy");
+    document.body.removeChild(d);
+    alert("✅ Copied to clipboard!");
+}
+
+function toggleMode() {
+    let m = document.getElementById('creation_mode').value;
+    document.getElementById('mode_single').classList.toggle('hidden', m !== 'single');
+    document.getElementById('mode_list').classList.toggle('hidden', m !== 'list');
+    document.getElementById('mode_pattern').classList.toggle('hidden', m !== 'pattern');
+}
+
+// 🚀 Profile Edit Function (Including UUID generation)
+function openM(u, proto, port, uuid, g, d) {
+    document.getElementById('mu_display').value = u;
+    document.getElementById('mp_display').value = port;
+    document.getElementById('muuid').value = uuid;
+    document.getElementById('mg').value = g;
+    document.getElementById('md').value = d;
+    document.getElementById('ef').action = "/edit_user/" + u;
+    document.getElementById('m').classList.remove('hidden');
+}
+
+function generateUUID() {
+    let uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+    document.getElementById('muuid').value = uuid;
+}
+
+function closeM() { document.getElementById('m').classList.add('hidden'); }
+
+function openRenew(u) {
+    document.getElementById('ru').innerText = u;
+    document.getElementById('rf').action = "/renew_user/" + u;
+    document.getElementById('rm').classList.remove('hidden');
+}
+
+function closeRenew() { document.getElementById('rm').classList.add('hidden'); }
+
+function submitToggle(u) {
+    let f = document.getElementById('actionToggleForm');
+    f.action = '/toggle_user/' + u;
+    f.submit();
+}
+
+function submitDelete(u) {
+    let f = document.getElementById('actionDeleteForm');
+    f.action = '/delete_user/' + u;
+    f.submit();
+}
+
+async function refreshServerPing(nodeId) {
+    const el = document.getElementById('ping_' + nodeId);
+    if (!el) return;
+    try {
+        const res = await fetch('/api/ping/' + encodeURIComponent(nodeId));
+        const json = await res.json();
+        if (json.status === 'online') {
+            const value = (typeof json.latency_ms === 'number') ? `${json.latency_ms} ms` : 'Online';
+            el.className = 'inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 mb-6';
+            el.innerHTML = `<i class="fa-solid fa-wave-square"></i> Ping: ${value}`;
+        } else {
+            el.className = 'inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-red-100 bg-red-50 text-red-600 mb-6';
+            el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ping: Offline';
+        }
+    } catch (e) {
+        el.className = 'inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-lg border border-red-100 bg-red-50 text-red-600 mb-6';
+        el.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ping: Error';
+    }
+}
+
+function refreshAllServerPings() {
+    const nodeIds = [{% for s in server_stats %}'{{ s.id }}'{% if not loop.last %}, {% endif %}{% endfor %}];
+    nodeIds.forEach(refreshServerPing);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    refreshAllServerPings();
+    setInterval(refreshAllServerPings, 20000);
+});
+</script>
+</body>
+</html>

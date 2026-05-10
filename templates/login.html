@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-blue-900 flex items-center justify-center h-screen font-sans p-4">
+    <div class="bg-white/10 backdrop-blur-lg p-8 rounded-3xl shadow-2xl w-full max-w-md text-center border border-white/20">
+        <h2 class="text-3xl font-black text-white mb-2 tracking-widest uppercase shadow-black/50 drop-shadow-lg">QITO Master</h2>
+        {% if error %}
+        <div class="mb-4 text-left bg-red-500/20 border border-red-300/40 text-red-100 px-3 py-2 rounded-xl text-xs font-bold">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+            <input type="text" name="username" placeholder="Username" autocomplete="username" required class="w-full bg-black/30 border border-white/10 p-4 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <input type="password" name="password" placeholder="Password" autocomplete="current-password" required class="w-full bg-black/30 border border-white/10 p-4 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <button class="w-full bg-blue-500 hover:bg-blue-400 text-white p-4 rounded-xl font-bold transition-all transform hover:scale-[1.02] shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                Continue to OTP
+            </button>
+        </form>
+    </div>
+</body>
+</html>

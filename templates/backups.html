@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backups - PanelMaster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-[#f4f7f6] font-sans">
+
+<nav class="bg-white shadow-sm border-b border-slate-200 mb-8">
+    <div class="max-w-7xl mx-auto px-4 md:px-8 py-4 flex justify-between items-center">
+        <div class="text-xl font-black text-slate-800">
+            <i class="fa-solid fa-bolt text-blue-600 mr-2"></i> PanelMaster
+        </div>
+        <div class="flex gap-6 items-center">
+            <a href="/" class="text-sm font-bold text-slate-500 hover:text-blue-600 transition"><i class="fa-solid fa-chart-pie mr-1"></i> Dashboard</a>
+            <a href="/backups" class="text-sm font-bold text-blue-600 transition"><i class="fa-solid fa-database mr-1"></i> Backups</a>
+            <a href="/logout" class="text-sm font-bold text-red-400 hover:text-red-600 transition ml-4"><i class="fa-solid fa-right-from-bracket mr-1"></i> Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="max-w-7xl mx-auto px-4 md:px-8 pb-12">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-2xl font-black text-slate-800 mb-1">Backup Management</h1>
+            <p class="text-sm font-bold text-slate-500">Securely save and download your Database.</p>
+        </div>
+        <form action="/create_backup" method="POST" class="m-0">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg shadow-blue-500/30 transition flex items-center">
+                <i class="fa-solid fa-plus mr-2"></i> Create New Backup
+            </button>
+        </form>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <table class="w-full text-left whitespace-nowrap">
+            <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <th class="p-6">No.</th>
+                    <th class="p-6">Backup File Name</th>
+                    <th class="p-6">File Size</th>
+                    <th class="p-6">Created Date</th>
+                    <th class="p-6 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                {% for b in backups %}
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                    <td class="p-6 text-slate-400 font-mono text-sm">{{ loop.index }}</td>
+                    <td class="p-6 font-bold text-slate-700 flex items-center gap-3">
+                        <i class="fa-solid fa-file-code text-blue-500 text-xl"></i> {{ b.name }}
+                    </td>
+                    <td class="p-6 font-mono text-sm text-slate-500">{{ b.size }}</td>
+                    <td class="p-6 font-mono text-sm text-slate-500">{{ b.time }}</td>
+                    <td class="p-6 text-center">
+                        <a href="/download_backup_file/{{ b.name }}" class="inline-block bg-slate-100 hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-xs font-bold transition">
+                            <i class="fa-solid fa-download mr-1"></i> Download
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="p-12 text-center text-slate-400 font-bold">
+                        <i class="fa-solid fa-folder-open text-4xl mb-3 text-slate-200 block"></i>
+                        No backups found. Create one now!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
