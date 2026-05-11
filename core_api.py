@@ -38,6 +38,27 @@ def _require_api_key():
         return jsonify({"success": False, "error": "Invalid or Revoked API Key"}), code
     return None
 
+
+def resolve_group_id(groups, raw_group_id):
+    """
+    External panels sometimes send a cached/display group value instead of the
+    exact JSON key, or include accidental whitespace. Resolve that safely to the
+    canonical group id used in auto_groups.json.
+    """
+    candidate = str(raw_group_id or "").strip()
+    if not candidate:
+        return ""
+    if candidate in groups:
+        return candidate
+
+    candidate_l = candidate.lower()
+    for gid, gdata in groups.items():
+        gid_s = str(gid).strip()
+        name_s = str((gdata or {}).get("name", "")).strip()
+        if candidate_l in (gid_s.lower(), name_s.lower()):
+            return gid
+    return candidate
+
 def get_target_ip(node_id):
     node_key = str(node_id or "").strip()
     if not node_key:
@@ -283,19 +304,20 @@ def api_generate_keys():
     req_data = request.get_json(force=True, silent=True)
     if not req_data: return jsonify({"success": False, "error": "Invalid JSON"}), 400
 
-    group_id = req_data.get('masterGroupId')
+    raw_group_id = req_data.get('masterGroupId')
     raw_username = req_data.get('userName')
     try: total_gb = float(req_data.get('totalGB', 0))
     except: total_gb = 0.0
     expire_date = req_data.get('expireDate', (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"))
     
-    if not group_id or not raw_username:
+    if not raw_group_id or not raw_username:
         return jsonify({"success": False, "error": "Missing masterGroupId or userName"}), 400
 
     username = str(raw_username).strip().replace(" ", "_")
     groups = load_auto_groups()
+    group_id = resolve_group_id(groups, raw_group_id)
     if group_id not in groups:
-        return jsonify({"success": False, "error": "Group not found"}), 404
+        return jsonify({"success": False, "error": "Group not found", "requestedGroupId": str(raw_group_id).strip()}), 404
 
     from core_auto import find_available_node
     
