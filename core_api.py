@@ -237,40 +237,6 @@ def api_get_active_groups():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@api_bp.route('/api/ping/<node_id>', methods=['GET', 'OPTIONS'])
-def api_ping_node(node_id):
-    if request.method == 'OPTIONS': return jsonify({"success": True}), 200
-    auth_err = _require_api_key()
-    if auth_err:
-        return auth_err
-
-    ip = get_target_ip(node_id)
-    if not ip:
-        return jsonify({"success": False, "status": "offline", "online": False, "error": "IP not found"}), 404
-    try:
-        res = subprocess.run(
-            ["ping", "-c", "1", "-W", "2", str(ip).strip()],
-            capture_output=True,
-            text=True,
-            timeout=4,
-        )
-        if res.returncode != 0:
-            return jsonify({"success": True, "status": "offline", "online": False})
-        latency_ms = None
-        for part in (res.stdout or "").split():
-            if part.startswith("time="):
-                try:
-                    latency_ms = round(float(part.split("=", 1)[1]), 2)
-                except Exception:
-                    latency_ms = None
-                break
-        payload = {"success": True, "status": "online", "online": True}
-        if latency_ms is not None:
-            payload["latency_ms"] = latency_ms
-        return jsonify(payload)
-    except Exception as e:
-        return jsonify({"success": False, "status": "offline", "online": False, "error": str(e)}), 500
-
 
 @api_bp.route('/metrics/transfer', methods=['GET', 'OPTIONS'])
 def api_metrics_transfer():
