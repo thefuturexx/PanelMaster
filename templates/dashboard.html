@@ -610,6 +610,9 @@
                 <input type="text" name="node_id" placeholder="Node ID (e.g. sg_01)" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition" required>
                 <input type="text" name="node_name" placeholder="Display Name" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition" required>
                 <input type="text" name="node_ip" placeholder="Server IP Address" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition" required>
+                <input type="text" name="ssh_username" value="root" placeholder="SSH Username" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition">
+                <input type="password" name="ssh_password" placeholder="SSH Password (one-time; not saved)" autocomplete="new-password" class="w-full bg-slate-50 border border-slate-200 p-3.5 rounded-xl font-mono text-sm focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition">
+                <p class="text-[10px] font-bold text-slate-400 leading-relaxed">Optional: if supplied, PanelMaster logs in once and installs this panel's SSH public key on the node.</p>
             </div>
             <div class="flex justify-end gap-3">
                 <button type="button" onclick="document.getElementById('addNodeModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>

@@ -18,7 +18,7 @@ echo "============================================"
 echo "[1/7] Installing system packages..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip git jq curl ufw openssh-client
+apt-get install -y python3 python3-venv python3-pip git jq curl ufw openssh-client sshpass
 echo "  -> Done"
 
 # 2) Clone or update repo

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, url_for, send_file, jsonify
-import json, os, re, secrets, subprocess, urllib.parse, base64, threading, time, requests, shlex
+import json, os, re, secrets, subprocess, urllib.parse, base64, threading, time, requests, shlex, shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
@@ -428,6 +428,93 @@ def run_ssh_sync(ip, cmd, timeout=20):
         return res.returncode == 0
     except Exception:
         return False
+
+
+def _ensure_master_ssh_keypair():
+    os.makedirs('/root/.ssh', mode=0o700, exist_ok=True)
+    priv = '/root/.ssh/id_rsa'
+    pub = f'{priv}.pub'
+    if not os.path.exists(priv):
+        res = subprocess.run(
+            ['ssh-keygen', '-t', 'rsa', '-b', '4096', '-f', priv, '-N', ''],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if res.returncode != 0:
+            err = (res.stderr or res.stdout or 'ssh-keygen failed').strip()
+            return None, err[:300]
+    if not os.path.exists(pub):
+        res = subprocess.run(['ssh-keygen', '-y', '-f', priv], capture_output=True, text=True, timeout=20)
+        if res.returncode != 0:
+            err = (res.stderr or res.stdout or 'failed to derive public key').strip()
+            return None, err[:300]
+        with open(pub, 'w') as f:
+            f.write(res.stdout.strip() + '\n')
+    with open(pub, 'r', encoding='utf-8') as f:
+        key = f.read().strip()
+    if not key:
+        return None, 'master public key is empty'
+    return key, ''
+
+
+def install_master_key_with_password(ip, ssh_user='root', ssh_password=''):
+    """One-time password login that installs this panel's public key on a node.
+
+    Password is not persisted. After this succeeds, existing key-based root SSH
+    flows can install/manage Xray as before.
+    """
+    ip = str(ip or '').strip()
+    ssh_user = str(ssh_user or 'root').strip() or 'root'
+    ssh_password = str(ssh_password or '')
+    if not ip or not ssh_password:
+        return True, 'skipped'
+    if ssh_user != 'root':
+        return False, 'Only root SSH username is supported for automatic node setup right now.'
+    if not shutil.which('sshpass'):
+        return False, 'sshpass is not installed on the PanelMaster VPS. Run install_panel.sh/update dependencies first.'
+
+    pubkey, err = _ensure_master_ssh_keypair()
+    if not pubkey:
+        return False, err or 'failed to read master public key'
+
+    remote_cmd = (
+        "mkdir -p ~/.ssh && chmod 700 ~/.ssh && "
+        f"touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && "
+        f"grep -qxF {shlex.quote(pubkey)} ~/.ssh/authorized_keys || "
+        f"printf '%s\\n' {shlex.quote(pubkey)} >> ~/.ssh/authorized_keys"
+    )
+    env = os.environ.copy()
+    env['SSHPASS'] = ssh_password
+    res = subprocess.run(
+        [
+            'sshpass', '-e', 'ssh',
+            '-o', 'ConnectTimeout=20',
+            '-o', 'StrictHostKeyChecking=no',
+            '-o', 'PreferredAuthentications=password',
+            '-o', 'PubkeyAuthentication=no',
+            f'{ssh_user}@{ip}',
+            remote_cmd
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=45
+    )
+    if res.returncode != 0:
+        err = (res.stderr or res.stdout or 'password SSH key install failed').strip()
+        return False, err[:500]
+
+    verify = subprocess.run(
+        ['ssh', '-o', 'ConnectTimeout=12', '-o', 'StrictHostKeyChecking=no', f'root@{ip}', 'echo ok'],
+        capture_output=True,
+        text=True,
+        timeout=20
+    )
+    if verify.returncode != 0:
+        err = (verify.stderr or verify.stdout or 'key verification failed').strip()
+        return False, err[:500]
+    return True, 'ok'
 
 def measure_ping_latency_ms(ip):
     if not ip:
@@ -1239,6 +1326,8 @@ def add_server_to_group(group_id):
     nid = request.form.get('node_id', '').strip().replace(" ", "_")
     nname = request.form.get('node_name', '').strip()
     nip = request.form.get('node_ip', '').strip()
+    ssh_user = request.form.get('ssh_username', 'root').strip() or 'root'
+    ssh_password = request.form.get('ssh_password', '')
     limit = int(request.form.get('limit', 30))
     groups = load_auto_groups()
     nodes = get_all_servers()
@@ -1247,6 +1336,11 @@ def add_server_to_group(group_id):
         return f"<script>alert('Error: Server ID [{nid}] already exists!'); window.history.back();</script>"
         
     if group_id in groups and nid and nip:
+        ok, msg = install_master_key_with_password(nip, ssh_user, ssh_password)
+        if not ok:
+            alert_msg = json.dumps(f"SSH key setup failed: {msg}")
+            log_activity("Add Server SSH Key Failed", f"group={group_id} node={nid} ip={nip} error={str(msg)[:140]}", "error")
+            return f"<script>alert({alert_msg}); window.history.back();</script>"
         groups[group_id]["nodes"][nid] = {
             "ip": nip,
             "limit": limit,
@@ -1254,7 +1348,7 @@ def add_server_to_group(group_id):
         }
         save_auto_groups(groups)
         threading.Thread(target=_bootstrap_group_node_after_add, args=(group_id, nid, nip), daemon=True).start()
-        log_activity("Add Server To Group", f"group={group_id} node={nid} name={nname or nid} ip={nip}", "success")
+        log_activity("Add Server To Group", f"group={group_id} node={nid} name={nname or nid} ip={nip} ssh_key_setup={msg}", "success")
         
     return redirect(f'/group/{group_id}?newly_added={nid}')
 
@@ -1581,11 +1675,18 @@ def add_node():
     n_id = request.form.get('node_id', '').strip().replace(" ", "_")
     n_name = request.form.get('node_name', '').strip()
     n_ip = request.form.get('node_ip', '').strip()
+    ssh_user = request.form.get('ssh_username', 'root').strip() or 'root'
+    ssh_password = request.form.get('ssh_password', '')
     
     if n_id and n_name and n_ip:
         nodes = get_all_servers()
         if _node_id_exists_ci(n_id, nodes):
             return f"<script>alert('Error: Node ID [{n_id}] already exists!'); window.history.back();</script>"
+        ok, msg = install_master_key_with_password(n_ip, ssh_user, ssh_password)
+        if not ok:
+            alert_msg = json.dumps(f"SSH key setup failed: {msg}")
+            log_activity("Add Custom Node SSH Key Failed", f"node={n_id} ip={n_ip} error={str(msg)[:140]}", "error")
+            return f"<script>alert({alert_msg}); window.history.back();</script>"
             
         if not os.path.exists(NODES_LIST):
             with open(NODES_LIST, 'w') as f: 
@@ -1593,7 +1694,7 @@ def add_node():
                 
         with open(NODES_LIST, 'a') as f: 
             f.write(f"\n{n_id}|{n_name}|{n_ip}")
-        log_activity("Add Custom Node", f"node={n_id} name={n_name} ip={n_ip}", "success")
+        log_activity("Add Custom Node", f"node={n_id} name={n_name} ip={n_ip} ssh_key_setup={msg}", "success")
             
     return redirect(f"/node/{n_id}?newly_added={n_id}")
 
