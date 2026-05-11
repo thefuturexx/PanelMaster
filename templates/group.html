@@ -239,9 +239,7 @@
                     <thead>
                         <tr class="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase tracking-widest text-slate-500">
                             <th class="p-6 w-10 text-center"><input type="checkbox" id="selectAll" class="w-4 h-4 cursor-pointer accent-purple-600 rounded" onclick="document.querySelectorAll('input[name=\\'usernames\\']').forEach(c=>c.checked=this.checked); updateBulkUI();"></th>
-                            <th class="p-6">Server / Switch</th>
-                            <th class="p-6">Group #</th>
-                            <th class="p-6">Global ID</th>
+                            <th class="p-6">Server / Switch</th> <th class="p-6">Global ID</th>
                             <th class="p-6">Profile</th>
                             <th class="p-6">Traffic Usage</th>
                             <th class="p-6">Expiry</th>
@@ -271,11 +269,8 @@
                                 </form>
                             </td>
 
-                            <td class="p-6 text-purple-600 font-black text-xs font-mono bg-purple-50/40">
-                                #{{ loop.index }}
-                            </td>
                             <td class="p-6 text-slate-400 font-black text-xs font-mono bg-slate-50/50">
-                                #{{ u.key_id if u.key_id else '-' }}
+                                #{{ u.key_id if u.key_id else loop.index }}
                             </td>
                             <td class="p-6">
                                 <div class="flex items-center gap-4">
