@@ -17,11 +17,25 @@ from core_security_keys import validate_api_key_value
 api_bp = Blueprint('api_bp', __name__)
 
 
+def _extract_api_key():
+    api_key = str(request.headers.get("x-api-key", "")).strip()
+    if api_key:
+        return api_key
+    auth = str(request.headers.get("Authorization", "")).strip()
+    if auth.lower().startswith("bearer "):
+        return auth.split(None, 1)[1].strip()
+    return ""
+
+
 def _require_api_key():
-    api_key = request.headers.get("x-api-key")
-    ok, _meta = validate_api_key_value(api_key)
+    api_key = _extract_api_key()
+    if not api_key:
+        return jsonify({"success": False, "error": "API Key Missing"}), 401
+    ok, meta = validate_api_key_value(api_key)
     if not ok:
-        return jsonify({"success": False, "error": "Unauthorized Access"}), 401
+        source = (meta or {}).get("source")
+        code = 401 if source in ("none", "missing", "") else 403
+        return jsonify({"success": False, "error": "Invalid or Revoked API Key"}), code
     return None
 
 def get_target_ip(node_id):
@@ -167,7 +181,8 @@ def apply_user_action_on_nodes(username, uinfo, action):
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, x-api-key'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, x-api-key, X-API-Key, Authorization'
+    response.headers['Access-Control-Max-Age'] = '86400'
     return response
 
 @api_bp.route('/conf/<token>.json', methods=['GET', 'OPTIONS'])
@@ -193,7 +208,7 @@ def api_get_ssconf(token):
     }
     return jsonify(data)
 
-@api_bp.route('/api/active-groups', methods=['GET', 'OPTIONS'])
+@api_bp.route('/api/active-groups', methods=['GET', 'POST', 'OPTIONS'])
 def api_get_active_groups():
     if request.method == 'OPTIONS': return jsonify({"success": True}), 200
     auth_err = _require_api_key()
@@ -202,10 +217,95 @@ def api_get_active_groups():
     
     try:
         groups = load_auto_groups()
-        group_list = [{"id": gid, "name": gdata.get("name", gid), "serverCount": len(gdata.get("nodes", {}))} for gid, gdata in groups.items()]
+        group_list = []
+        for gid, gdata in groups.items():
+            nodes = (gdata or {}).get("nodes", {}) or {}
+            first_node = next(iter(nodes.keys()), "") if isinstance(nodes, dict) else ""
+            name = (gdata or {}).get("name", gid)
+            group_list.append({
+                # Current PanelMaster fields
+                "id": gid,
+                "name": name,
+                "serverCount": len(nodes) if isinstance(nodes, dict) else 0,
+                # Compatibility fields expected by external panels
+                "groupId": gid,
+                "groupName": name,
+                "masterNodeId": first_node,
+            })
         return jsonify({"success": True, "groups": group_list})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route('/api/ping/<node_id>', methods=['GET', 'OPTIONS'])
+def api_ping_node(node_id):
+    if request.method == 'OPTIONS': return jsonify({"success": True}), 200
+    auth_err = _require_api_key()
+    if auth_err:
+        return auth_err
+
+    ip = get_target_ip(node_id)
+    if not ip:
+        return jsonify({"success": False, "status": "offline", "online": False, "error": "IP not found"}), 404
+    try:
+        res = subprocess.run(
+            ["ping", "-c", "1", "-W", "2", str(ip).strip()],
+            capture_output=True,
+            text=True,
+            timeout=4,
+        )
+        if res.returncode != 0:
+            return jsonify({"success": True, "status": "offline", "online": False})
+        latency_ms = None
+        for part in (res.stdout or "").split():
+            if part.startswith("time="):
+                try:
+                    latency_ms = round(float(part.split("=", 1)[1]), 2)
+                except Exception:
+                    latency_ms = None
+                break
+        payload = {"success": True, "status": "online", "online": True}
+        if latency_ms is not None:
+            payload["latency_ms"] = latency_ms
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({"success": False, "status": "offline", "online": False, "error": str(e)}), 500
+
+
+@api_bp.route('/metrics/transfer', methods=['GET', 'OPTIONS'])
+def api_metrics_transfer():
+    if request.method == 'OPTIONS': return jsonify({"success": True}), 200
+    auth_err = _require_api_key()
+    if auth_err:
+        return auth_err
+
+    try:
+        with db_lock:
+            if os.path.exists(USERS_DB):
+                with open(USERS_DB, 'r') as f:
+                    db = json.load(f)
+            else:
+                db = {}
+        by_user_id = {}
+        by_username = {}
+        for db_key, uinfo in (db or {}).items():
+            if not isinstance(uinfo, dict):
+                continue
+            display = get_display_name(db_key, uinfo)
+            user_id = str(uinfo.get("userId") or uinfo.get("key_id") or display).strip()
+            used = int(float(uinfo.get("used_bytes", 0) or 0))
+            if user_id:
+                by_user_id[user_id] = used
+            if display:
+                by_username[display] = used
+        return jsonify({
+            "success": True,
+            "bytesTransferredByUserId": by_user_id,
+            "bytesTransferredByUsername": by_username,
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @api_bp.route('/api/generate-keys', methods=['POST', 'OPTIONS'])
 def api_generate_keys():
@@ -435,6 +535,7 @@ def api_user_action():
 
     return jsonify({"success": True})
 
+@api_bp.route('/api/edit-user', methods=['POST', 'OPTIONS'])
 @api_bp.route('/api/internal/edit-user', methods=['POST', 'OPTIONS'])
 def api_internal_edit_user():
     if request.method == 'OPTIONS':
