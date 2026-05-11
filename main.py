@@ -601,11 +601,30 @@ def api_user_ip(username):
     node_id = uinfo.get('node')
     port = uinfo.get('port', '443')
     proto = uinfo.get('protocol', 'v2')
-    
-    node_ip = get_target_ip(node_id)
-    if not node_ip: return jsonify({"status": "error", "msg": "Node offline"})
-    
-    ips_info = get_active_ips(node_ip, port, proto, username)
+    display = get_display_name(username, uinfo)
+    aliases = [username, display]
+
+    node_ids = []
+    group_id = uinfo.get('group')
+    if group_id:
+        groups = load_auto_groups()
+        node_ids = list(((groups.get(group_id, {}) or {}).get('nodes', {}) or {}).keys())
+    if node_id and node_id not in node_ids:
+        node_ids.append(node_id)
+
+    ips_info = []
+    seen_ips = set()
+    for nid in node_ids:
+        node_ip = get_target_ip(nid)
+        if not node_ip:
+            continue
+        for item in get_active_ips(node_ip, port, proto, username, aliases=aliases):
+            ip = item.get('ip') if isinstance(item, dict) else None
+            if ip and ip not in seen_ips:
+                seen_ips.add(ip)
+                ips_info.append(item)
+    if not node_ids:
+        return jsonify({"status": "error", "msg": "Node offline"})
     return jsonify({"status": "success", "data": ips_info})
 
 @app.route('/fix_node_logs/<node_id>', methods=['POST'])

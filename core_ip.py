@@ -3,6 +3,7 @@ import urllib.request
 import json
 import re
 import os
+import shlex
 from datetime import datetime
 from utils import db_lock
 
@@ -31,9 +32,24 @@ def fetch_geoip(ip):
         pass
     return "Unknown Location"
 
-def get_active_ips(node_ip, port, protocol, username):
+def _unique(values):
+    out = []
+    for value in values:
+        value = str(value or "").strip()
+        if value and value not in out:
+            out.append(value)
+    return out
+
+
+def _grep_pattern(parts):
+    # Escape regex metacharacters in user/group tags such as Test::aa.
+    return "|".join(re.escape(str(p)) for p in _unique(parts) if str(p).strip())
+
+
+def get_active_ips(node_ip, port, protocol, username, aliases=None):
     """Network Command နှင့် Xray Log နှစ်မျိုးလုံးမှ IP များကို အမိအရ ဆွဲထုတ်မည်"""
     active_ips = set()
+    aliases = _unique([username] + list(aliases or []))
     
     try:
         # 🚀 ၁။ Shadowsocks အတွက် Live Connection များကို တိုက်ရိုက်ဖမ်းမည်
@@ -47,17 +63,36 @@ def get_active_ips(node_ip, port, protocol, username):
                     active_ips.add(ip)
 
         # 🚀 ၂။ History အတွက် Xray Access Log မှ ပြန်လည်ရှာဖွေမည် (VLESS ကော SS ပါရမည်)
-        # Shadowsocks ဆိုလျှင် ၎င်း၏ Port ဖြင့်ရှာမည်၊ VLESS ဆိုလျှင် Username ဖြင့်ရှာမည်
-        search_pattern = f"{username}|:{port}" if protocol == 'out' else username
+        # Group users may be provisioned as out-aa or out-Test::aa depending on
+        # the path/version that created the node key, so search all safe aliases.
+        display_aliases = []
+        for alias in aliases:
+            display_aliases.append(alias)
+            if "::" in alias:
+                display_aliases.append(alias.split("::", 1)[1])
+        if protocol == 'out':
+            tags = []
+            for alias in _unique(display_aliases):
+                tags.extend([alias, f"out-{alias}"])
+            search_pattern = _grep_pattern(tags + [f":{port}"])
+        else:
+            search_pattern = _grep_pattern(display_aliases)
         
-        cmd_log = f"ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@{node_ip} \"cat /var/log/xray/access.log 2>/dev/null | grep 'accepted' | grep -E '{search_pattern}' | tail -n 1000 || journalctl -u xray --no-pager 2>/dev/null | grep 'accepted' | grep -E '{search_pattern}' | tail -n 1000\""
-        res_log = subprocess.run(cmd_log, shell=True, capture_output=True, text=True, timeout=12)
-        
-        # Regex ဖြင့် IP ကိုတိကျစွာ ဖြတ်ထုတ်ခြင်း
-        for line in res_log.stdout.splitlines():
-            match = re.search(r'([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):\d+\s+accepted', line)
-            if match:
-                active_ips.add(match.group(1))
+        if search_pattern:
+            remote_log = (
+                "cat /var/log/xray/access.log 2>/dev/null | grep 'accepted' | "
+                f"grep -E {shlex.quote(search_pattern)} | tail -n 1000 || "
+                "journalctl -u xray --no-pager 2>/dev/null | grep 'accepted' | "
+                f"grep -E {shlex.quote(search_pattern)} | tail -n 1000"
+            )
+            cmd_log = f"ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no root@{node_ip} {shlex.quote(remote_log)}"
+            res_log = subprocess.run(cmd_log, shell=True, capture_output=True, text=True, timeout=12)
+            
+            # Regex ဖြင့် IP ကိုတိကျစွာ ဖြတ်ထုတ်ခြင်း
+            for line in res_log.stdout.splitlines():
+                match = re.search(r'([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):\d+\s+accepted', line)
+                if match:
+                    active_ips.add(match.group(1))
 
     except Exception as e:
         print(f"IP Tracker Error: {e}")
