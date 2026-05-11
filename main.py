@@ -38,6 +38,7 @@ from core_security_keys import (
     list_api_key_clients,
     create_api_key_client,
     revoke_api_key_client,
+    validate_api_key_value,
 )
 
 # 🚀 API Blueprint ကို လှမ်းခေါ်ခြင်း
@@ -199,6 +200,18 @@ def apply_security_headers(response):
             response.set_data(body.replace("</body>", inject_js + "\n</body>"))
     return response
 
+def _request_has_valid_api_key():
+    api_key = str(request.headers.get("x-api-key", "")).strip()
+    if not api_key:
+        auth = str(request.headers.get("Authorization", "")).strip()
+        if auth.lower().startswith("bearer "):
+            api_key = auth.split(None, 1)[1].strip()
+    if not api_key:
+        return False
+    ok, _meta = validate_api_key_value(api_key)
+    return bool(ok)
+
+
 @app.before_request
 def check_auth():
     # Blueprint API routes protect themselves with x-api-key. UI-owned /api/*
@@ -207,8 +220,12 @@ def check_auth():
         return
     if request.path.startswith('/conf/'):
         return
+    # External panels need to ping nodes without a UI session. Keep the browser UI
+    # behavior unchanged, but allow this one JSON route when a valid API key is sent.
+    if request.endpoint == 'api_ping' and _request_has_valid_api_key():
+        return
     allowed_ui_endpoints = ['login', 'login_otp', 'resend_login_otp', 'static']
-    if request.endpoint not in allowed_ui_endpoints and not session.get('logged_in'): 
+    if request.endpoint not in allowed_ui_endpoints and not session.get('logged_in'):
         return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
