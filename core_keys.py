@@ -1,5 +1,6 @@
 import json, os, subprocess, threading, time
-from utils import get_all_servers, db_lock, get_safe_delete_cmd
+from utils import get_all_servers, db_lock
+from core_engine import get_safe_delete_cmd_for_variants
 
 try:
     from config import USERS_DB
@@ -69,7 +70,7 @@ def sync_node_traffic():
                                 if float(uinfo['used_bytes']) >= max_bytes and not uinfo.get('is_blocked', False):
                                     uinfo['is_blocked'] = True
                                     uinfo['is_online'] = False
-                                    users_to_block.append((node_ip, uname, uinfo.get('protocol', 'v2'), uinfo.get('port', '443')))
+                                    users_to_block.append((node_ip, uname, uinfo.get('group'), uinfo.get('protocol', 'v2'), uinfo.get('port', '443')))
                 except Exception: pass
 
             if db_changed:
@@ -77,8 +78,8 @@ def sync_node_traffic():
                     with open(USERS_DB, 'w') as f: json.dump(db, f)
 
             # Block လုပ်ရမည့် Key များကို Xray ထဲမှ သေချာပေါက် ပိတ်ချမည်
-            for node_ip, uname, proto, port in users_to_block:
-                safe_cmd = get_safe_delete_cmd(uname, proto, port)
+            for node_ip, uname, group_id, proto, port in users_to_block:
+                safe_cmd = get_safe_delete_cmd_for_variants(uname, proto, port, group_id)
                 execute_ssh(node_ip, [safe_cmd, "systemctl restart xray"])
 
         except Exception: pass

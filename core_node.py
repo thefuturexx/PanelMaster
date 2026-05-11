@@ -2,7 +2,7 @@ import json, os, uuid, base64, urllib.parse, random, string, threading, requests
 from datetime import datetime, timedelta
 from utils import db_lock, get_all_servers, make_db_key, get_display_name, find_db_key
 from core_auto import find_available_node, load_auto_groups, save_auto_groups
-from core_engine import execute_ssh_bg, get_safe_delete_cmd, get_safe_add_out_cmd
+from core_engine import execute_ssh_bg, get_safe_delete_cmd_for_variants, get_safe_add_out_cmd
 
 try:
     from config import USERS_DB, NODES_LIST, MASTER_API_KEY, safe_load_json, safe_save_json, ensure_data_dirs
@@ -226,7 +226,7 @@ def toggle_key(db_key):
                         target_ips = get_group_node_ips(group_id) or target_ips
                     if user['is_blocked']:
                         user['is_online'] = False
-                        cmd = get_safe_delete_cmd(display, protocol, user.get('port', '443'))
+                        cmd = get_safe_delete_cmd_for_variants(display, protocol, user.get('port', '443'), group_id)
                     else:
                         uid = user['uuid']
                         cmd = f"/usr/local/bin/v2ray-node-add-vless {shlex.quote(display)} {shlex.quote(uid)}" if protocol == 'v2' else get_safe_add_out_cmd(display, uid, user['port'])
@@ -297,7 +297,7 @@ def delete_key(db_key):
                 ip = get_robust_ip(info.get('node'))
                 protocol = info.get('protocol', 'v2')
                 if ip:
-                    cmd = get_safe_delete_cmd(display, protocol, info.get('port', '443'))
+                    cmd = get_safe_delete_cmd_for_variants(display, protocol, info.get('port', '443'), info.get('group'))
                     if protocol == 'v2':
                         execute_ssh_bg(str(ip).strip(), [f"{cmd} ; systemctl restart xray"])
                     else:
@@ -326,7 +326,7 @@ def bulk_delete_keys(db_keys):
                     protocol = info.get('protocol', 'v2')
                     if ip:
                         ip = str(ip).strip()
-                        cmd = get_safe_delete_cmd(display, protocol, info.get('port', '443'))
+                        cmd = get_safe_delete_cmd_for_variants(display, protocol, info.get('port', '443'), info.get('group'))
                         if protocol == 'v2':
                             vless_dels.setdefault(ip, []).append(cmd)
                         else:

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from utils import get_all_servers, db_lock, make_db_key, get_display_name, find_db_key
 from core_auto import load_auto_groups
-from core_engine import get_safe_delete_cmd, get_safe_add_out_cmd
+from core_engine import get_safe_delete_cmd_for_variants, get_safe_add_out_cmd
 
 try:
     from config import USERS_DB, NODES_LIST
@@ -159,7 +159,7 @@ def apply_user_action_on_nodes(username, uinfo, action):
         nip = str(nip).strip()
 
         if action in ["suspend", "delete"]:
-            cmd_del = get_safe_delete_cmd(username, proto, port if proto != 'v2' else '443')
+            cmd_del = get_safe_delete_cmd_for_variants(username, proto, port if proto != 'v2' else '443', group_id)
             if proto == 'v2':
                 cmd_full_del = f"{cmd_del} ; systemctl restart xray"
             else:
@@ -651,7 +651,7 @@ def api_internal_delete_user():
         if not nip:
             continue
         nip = str(nip).strip()
-        cmd_del = get_safe_delete_cmd(display, proto, port if proto != 'v2' else '443')
+        cmd_del = get_safe_delete_cmd_for_variants(display, proto, port if proto != 'v2' else '443', group_id)
         if proto == 'v2':
             cmd_full_del = f"{cmd_del} ; systemctl restart xray"
         else:

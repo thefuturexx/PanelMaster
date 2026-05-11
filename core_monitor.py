@@ -3,7 +3,7 @@ from datetime import datetime
 
 from utils import get_all_servers, db_lock, get_display_name
 from core_auto import load_auto_groups
-from core_engine import get_safe_delete_cmd, execute_ssh_bg
+from core_engine import get_safe_delete_cmd_for_variants, execute_ssh_bg
 
 try:
     from config import USERS_DB, NODES_LIST, load_config, safe_load_json, safe_save_json, ensure_data_dirs
@@ -191,7 +191,7 @@ def suspend_user_everywhere(username, uinfo):
         if not nip:
             continue
         total_targets += 1
-        cmd_del = get_safe_delete_cmd(username, proto, port if proto != 'v2' else '443')
+        cmd_del = get_safe_delete_cmd_for_variants(username, proto, port if proto != 'v2' else '443', group_id)
         if proto == 'v2':
             remote_cmd = f"export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; {cmd_del} ; systemctl restart xray"
         else:
@@ -459,11 +459,21 @@ def monitor_traffic():
                     continue
 
                 # If user is already blocked, keep retrying node-side enforcement until success.
+                # Also retry when stale active-node markers remain: older delete logic could mark
+                # block_enforced=True after deleting out-aa2 while the real node tag was
+                # out-Group::aa2, leaving the blocked key usable on another group node.
                 if uinfo.get('is_blocked', False):
-                    if not bool(uinfo.get('block_enforced', False)):
+                    needs_enforcement = (
+                        not bool(uinfo.get('block_enforced', False))
+                        or bool(uinfo.get('is_online', False))
+                        or bool(uinfo.get('online_on_ips'))
+                    )
+                    if needs_enforcement:
                         enforced = suspend_user_everywhere(get_display_name(uname, uinfo), uinfo)
                         if enforced:
                             uinfo['block_enforced'] = True
+                            uinfo['is_online'] = False
+                            uinfo['online_on_ips'] = []
                             db_changed = True
                     continue
 

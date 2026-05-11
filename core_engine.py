@@ -50,6 +50,33 @@ def _clean_xray_out_tag_cmd(tag):
     )
     return f"PM_XRAY_TAG={shlex.quote(str(tag))} python3 -c {shlex.quote(code)}"
 
+def get_delete_name_variants(username, group_id=None):
+    """
+    Return all historical tag/name variants that may exist on nodes for a user.
+
+    Older group provisioning paths sometimes wrote Shadowsocks tags with the DB
+    key (for example out-Test::aa2) while quota/block enforcement later tried to
+    delete only the display username (out-aa2).  Keep both exact variants so a
+    blocked/deleted user is actually removed from every resolved node without
+    falling back to unsafe delete-by-port behavior.
+    """
+    variants = []
+
+    def add(value):
+        value = str(value or "").strip()
+        if value and value not in variants:
+            variants.append(value)
+
+    raw = str(username or "").strip()
+    add(raw)
+    display = raw.split("::", 1)[1] if "::" in raw else raw
+    add(display)
+    gid = str(group_id or "").strip()
+    if gid and display:
+        add(f"{gid}::{display}")
+    return variants
+
+
 # 🚀 နာမည်မပြောင်းဘဲ Protocol ပေါ်မူတည်၍ VLESS နှင့် SS အား သီးခြား အလုပ်လုပ်စေမည်
 def get_safe_delete_cmd(username, protocol, port):
     username_q = shlex.quote(str(username))
@@ -61,6 +88,11 @@ def get_safe_delete_cmd(username, protocol, port):
         tag = f"out-{username}"
         py_clean = _clean_xray_out_tag_cmd(tag)
         return f"{py_clean} ; yes | /usr/local/bin/v2ray-node-del-out {username_q} {port_q} >/dev/null 2>&1 || true ; ufw delete allow {port_q}/tcp >/dev/null 2>&1 || true ; ufw delete allow {port_q}/udp >/dev/null 2>&1 || true"
+
+
+def get_safe_delete_cmd_for_variants(username, protocol, port, group_id=None):
+    cmds = [get_safe_delete_cmd(name, protocol, port) for name in get_delete_name_variants(username, group_id)]
+    return " ; ".join(cmds)
 
 def get_safe_add_out_cmd(username, uid, port):
     """
