@@ -167,7 +167,9 @@ def apply_user_action_on_nodes(username, uinfo, action):
 def add_cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, x-api-key'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, x-api-key, X-API-Key, Authorization'
+    response.headers['Access-Control-Max-Age'] = '86400'
+    response.headers['Cache-Control'] = 'no-store'
     return response
 
 @api_bp.route('/conf/<token>.json', methods=['GET', 'OPTIONS'])
@@ -193,8 +195,10 @@ def api_get_ssconf(token):
     }
     return jsonify(data)
 
-@api_bp.route('/api/active-groups', methods=['GET', 'OPTIONS'])
+@api_bp.route('/api/active-groups', methods=['GET', 'POST', 'OPTIONS'])
 def api_get_active_groups():
+    # Some external panels probe this endpoint with POST after a GET timeout.
+    # Treat GET and POST identically so group fetch remains backward compatible.
     if request.method == 'OPTIONS': return jsonify({"success": True}), 200
     auth_err = _require_api_key()
     if auth_err:

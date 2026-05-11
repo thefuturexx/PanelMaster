@@ -144,6 +144,11 @@ def enforce_https_and_csrf():
         return "Forbidden (csrf check failed).", 403
 
 
+def _is_external_api_request():
+    endpoint = str(request.endpoint or "")
+    return endpoint.startswith("api_bp.") or request.path.startswith("/conf/")
+
+
 @app.after_request
 def apply_security_headers(response):
     response.headers["X-Frame-Options"] = "DENY"
@@ -153,6 +158,13 @@ def apply_security_headers(response):
     response.headers["Content-Security-Policy"] = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
     if request.is_secure or str(request.headers.get("X-Forwarded-Proto", "")).startswith("https"):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # External API routes authenticate with x-api-key and must remain stateless.
+    # Do not create Flask sessions/CSRF cookies or inject browser-only CSRF JS;
+    # some upstream panels/proxies treat those as UI/login responses and abort.
+    if _is_external_api_request():
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     csrf_token = _get_or_create_csrf_token()
     response.set_cookie(
