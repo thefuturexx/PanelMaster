@@ -345,4 +345,50 @@ def bulk_delete_keys(db_keys):
                 execute_ssh_bg(ip, [combined_cmd])
 
 def rebalance_auto_node(group_id, new_limit, specific_node=None):
+    """Update auto-group/server limits.
+
+    The old implementation was a stub, so the UI showed success while
+    auto_groups.json stayed unchanged. Keep this function focused on persisting
+    the requested limit; key migration/rebalancing can be added later without
+    making limit edits silently fail.
+    """
+    try:
+        new_limit = int(new_limit)
+    except Exception:
+        return False, "❌ Invalid limit value."
+    if new_limit < 0:
+        return False, "❌ Limit cannot be negative."
+
+    groups = load_auto_groups()
+    if group_id not in groups:
+        return False, "❌ Group not found."
+
+    group = groups[group_id]
+    if not isinstance(group, dict):
+        return False, "❌ Invalid group data."
+
+    nodes = group.setdefault("nodes", {})
+    if not isinstance(nodes, dict):
+        group["nodes"] = {}
+        nodes = group["nodes"]
+
+    def _set_node_limit(node_id):
+        if node_id not in nodes:
+            return False
+        ndata = nodes[node_id]
+        if isinstance(ndata, dict):
+            ndata["limit"] = new_limit
+        else:
+            nodes[node_id] = {"ip": str(ndata).strip(), "limit": new_limit, "name": str(node_id)}
+        return True
+
+    if specific_node:
+        if not _set_node_limit(specific_node):
+            return False, "❌ Server not found in group."
+    else:
+        group["limit"] = new_limit
+        for nid in list(nodes.keys()):
+            _set_node_limit(nid)
+
+    save_auto_groups(groups)
     return True, "Success"
