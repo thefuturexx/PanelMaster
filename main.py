@@ -850,6 +850,53 @@ def add_auto_group():
         log_activity("Add Auto Group", f"group={gid} name={gname} limit={limit}", "success")
     return redirect(url_for('dashboard'))
 
+@app.route('/rename_auto_group/<group_id>', methods=['POST'])
+def rename_auto_group(group_id):
+    old_gid = str(group_id or '').strip()
+    new_gid = request.form.get('new_group_id', '').strip().replace(' ', '_')
+
+    if not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}', new_gid or ''):
+        return "<script>alert('Invalid Group ID. Use only A-Z, a-z, 0-9, underscore, dot, or dash.'); window.history.back();</script>"
+    if new_gid == old_gid:
+        return redirect(f'/group/{old_gid}')
+
+    with db_lock:
+        groups = load_auto_groups()
+        if old_gid not in groups:
+            return "<script>alert('Old Group ID not found.'); window.location='/';</script>"
+        if new_gid in groups:
+            return "<script>alert('New Group ID already exists.'); window.history.back();</script>"
+
+        db = safe_load_json(USERS_DB, {})
+        if not isinstance(db, dict):
+            db = {}
+
+        renamed_db = {}
+        moved_users = 0
+        for dk, info in db.items():
+            new_key = dk
+            if isinstance(info, dict) and (info.get('group') == old_gid or str(dk).startswith(f'{old_gid}::')):
+                username = get_display_name(dk, info)
+                new_key = make_db_key(new_gid, username)
+                if new_key in db and new_key != dk:
+                    return "<script>alert('Cannot rename: user key collision in target Group ID.'); window.history.back();</script>"
+                info = dict(info)
+                info['group'] = new_gid
+                info['username'] = username
+                moved_users += 1
+            renamed_db[new_key] = info
+
+        updated_groups = {}
+        for gid, gdata in groups.items():
+            updated_groups[new_gid if gid == old_gid else gid] = gdata
+
+        save_auto_groups(updated_groups)
+        safe_save_json(USERS_DB, renamed_db, indent=4)
+
+    log_activity("Rename Auto Group ID", f"old={old_gid} new={new_gid} users_moved={moved_users}", "warning")
+    return redirect(f'/group/{new_gid}')
+
+
 @app.route('/delete_auto_group/<group_id>', methods=['POST'])
 def delete_auto_group(group_id):
     groups = load_auto_groups()

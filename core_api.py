@@ -58,12 +58,6 @@ def resolve_group_id(groups, raw_group_id):
         if candidate_l in (gid_s.lower(), name_s.lower()):
             return gid
 
-    # If this master has only one active group, accept a stale external id/name
-    # (for example old "Test" while the current group is "Test1"). This keeps
-    # external panels working after a group rename/recreate without requiring a
-    # destructive reset on the client side.
-    if len(groups) == 1:
-        return next(iter(groups.keys()))
     return candidate
 
 def get_target_ip(node_id):

@@ -50,6 +50,9 @@
             <div class="w-full flex-1">
                 <div class="flex items-center gap-3 mb-3">
                     <span class="bg-white/20 backdrop-blur-md font-mono text-[10px] px-3 py-1.5 rounded-lg uppercase tracking-widest border border-white/10">Auto Node ID: {{ group_id }}</span>
+                    <button onclick="document.getElementById('editGroupIdModal').classList.remove('hidden')" class="bg-white/20 hover:bg-white/40 w-8 h-8 rounded-lg flex items-center justify-center transition border border-white/10" title="Edit Group ID">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
                 </div>
                 <h1 class="text-4xl font-black uppercase mb-2 tracking-tight">{{ group.name }}</h1>
                 
@@ -381,6 +384,23 @@
     </div>
 </div>
 
+<div id="editGroupIdModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-3xl p-8 w-[420px] shadow-2xl border border-slate-100">
+        <h2 class="text-xl font-black mb-2 text-slate-800">Edit Group ID</h2>
+        <p class="text-xs text-slate-500 mb-6 font-bold leading-relaxed">This renames the Auto Group ID and updates existing users from <span class="font-mono text-purple-600">{{ group_id }}::username</span> to the new ID.</p>
+        <form action="/rename_auto_group/{{ group_id }}" method="POST" onsubmit="return confirmRenameGroupId('{{ group_id }}');">
+            <div class="mb-8">
+                <input type="text" name="new_group_id" id="newGroupIdInput" value="{{ group_id }}" pattern="[A-Za-z0-9_.-]{1,64}" class="w-full bg-purple-50 border border-purple-200 p-4 rounded-xl font-mono text-lg font-black text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-100 transition" required>
+                <p class="text-[10px] text-slate-400 font-bold mt-2">Allowed: letters, numbers, underscore, dot, dash. No spaces.</p>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="document.getElementById('editGroupIdModal').classList.add('hidden')" class="px-5 py-2.5 font-bold text-slate-500 hover:text-slate-800 transition">Cancel</button>
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-purple-200 transition">Rename ID</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="editGlobalLimitModal" class="hidden fixed inset-0 glass-dark flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-3xl p-8 w-[400px] shadow-2xl border border-slate-100">
         <h2 class="text-xl font-black mb-2 text-slate-800">Edit Global Limit</h2>
@@ -674,6 +694,13 @@ function updateBulkUI() {
     } else {
         d.classList.add('hidden');
     }
+}
+
+function confirmRenameGroupId(oldGroupId) {
+    const input = document.getElementById('newGroupIdInput');
+    const newGroupId = input ? input.value.trim() : '';
+    if (!newGroupId || newGroupId === oldGroupId) return true;
+    return confirm(`Rename Auto Group ID from [${oldGroupId}] to [${newGroupId}]? Existing user DB group keys will be migrated.`);
 }
 
 function confirmDeleteGroupById(groupId) {
