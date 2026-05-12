@@ -480,7 +480,10 @@ def api_user_action():
     req_data = request.get_json(force=True, silent=True)
     if not req_data: return jsonify({"success": False, "error": "Invalid JSON"}), 400
 
-    token = req_data.get('token')
+    token = str(req_data.get('token', '')).strip()
+    raw_username = str(req_data.get('username', req_data.get('userName', req_data.get('name', '')))).strip()
+    raw_group_id = str(req_data.get('group', req_data.get('masterGroupId', ''))).strip() or None
+    raw_user_id = str(req_data.get('userId', req_data.get('keyId', ''))).strip()
     action_raw = str(req_data.get('action', '')).strip().lower()
     action_alias = {
         "suspend": "suspend",
@@ -498,13 +501,22 @@ def api_user_action():
         return jsonify({"success": False, "error": f"Unsupported action: {action_raw}"}), 400
 
     with db_lock:
-        if not os.path.exists(USERS_DB): return jsonify({"success": False}), 404
+        if not os.path.exists(USERS_DB):
+            return jsonify({"success": False, "error": "DB not found"}), 404
         with open(USERS_DB, 'r') as f: db = json.load(f)
-        
-        username = next((uname for uname, info in db.items() if isinstance(info, dict) and info.get('token') == token), None)
-        if not username: return jsonify({"success": False}), 404
 
-        uinfo = db[username]
+        db_key = None
+        if token:
+            db_key = next((k for k, info in db.items() if isinstance(info, dict) and info.get('token') == token), None)
+        if not db_key and raw_username:
+            db_key = find_db_key(db, raw_username, raw_group_id)
+        if not db_key and raw_user_id:
+            db_key = next((k for k, info in db.items() if isinstance(info, dict) and str(info.get('key_id', '')) == raw_user_id), None)
+        if not db_key or db_key not in db:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        uinfo = db[db_key]
+        display = get_display_name(db_key, uinfo)
         target_node = uinfo.get('node')
         node_ip = get_target_ip(target_node)
         active_ip = str(node_ip).strip() if node_ip else None
@@ -516,13 +528,13 @@ def api_user_action():
 
         if action == "suspend": uinfo['is_blocked'] = True
         elif action == "resume": uinfo['is_blocked'] = False
-        elif action == "delete": del db[username]
+        elif action == "delete": del db[db_key]
 
         with open(USERS_DB, 'w') as f: json.dump(db, f, indent=4)
         
-    apply_user_action_on_nodes(username, uinfo, action)
+    apply_user_action_on_nodes(display, uinfo, action)
 
-    return jsonify({"success": True})
+    return jsonify({"success": True, "message": "Action completed successfully"})
 
 @api_bp.route('/api/edit-user', methods=['POST', 'OPTIONS'])
 @api_bp.route('/api/internal/edit-user', methods=['POST', 'OPTIONS'])
