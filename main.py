@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, session, url_for, send_file, jsonify
-import json, os, re, secrets, subprocess, urllib.parse, base64, threading, time, requests, shlex, shutil
+import json, os, re, secrets, subprocess, urllib.parse, base64, threading, time, requests, shlex, shutil, pty, select
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
@@ -475,6 +475,76 @@ def _ensure_master_ssh_keypair():
     return key, ''
 
 
+def _run_password_ssh_command(args, password, timeout=45):
+    """Run ssh with a password using only stdlib when sshpass is unavailable.
+
+    Some PanelMaster installs are updated from GitHub without re-running the
+    installer, so optional OS packages like sshpass may be missing. This PTY
+    fallback keeps one-time node key setup working without requiring a manual
+    package install on the PanelMaster VPS.
+    """
+    password = str(password or '')
+    output = []
+    sent_password_count = 0
+    child_pid, fd = pty.fork()
+    if child_pid == 0:
+        os.execvp(args[0], args)
+
+    deadline = time.time() + timeout
+    return_code = None
+    try:
+        while True:
+            if time.time() > deadline:
+                try:
+                    os.kill(child_pid, 9)
+                except Exception:
+                    pass
+                return 124, ''.join(output) or 'password SSH command timed out'
+
+            pid, status = os.waitpid(child_pid, os.WNOHANG)
+            if pid == child_pid:
+                return_code = os.waitstatus_to_exitcode(status)
+                break
+
+            ready, _, _ = select.select([fd], [], [], 0.2)
+            if not ready:
+                continue
+            try:
+                data = os.read(fd, 4096)
+            except OSError:
+                continue
+            if not data:
+                continue
+            text = data.decode(errors='replace')
+            output.append(text)
+            lower = text.lower()
+            if 'are you sure you want to continue connecting' in lower:
+                os.write(fd, b'yes\n')
+            elif 'password:' in lower and sent_password_count < 3:
+                os.write(fd, (password + '\n').encode())
+                sent_password_count += 1
+
+        # Drain any remaining PTY output.
+        end = time.time() + 1
+        while time.time() < end:
+            ready, _, _ = select.select([fd], [], [], 0.05)
+            if not ready:
+                break
+            try:
+                data = os.read(fd, 4096)
+            except OSError:
+                break
+            if not data:
+                break
+            output.append(data.decode(errors='replace'))
+    finally:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+    return return_code if return_code is not None else 1, ''.join(output)
+
+
 def install_master_key_with_password(ip, ssh_user='root', ssh_password=''):
     """One-time password login that installs this panel's public key on a node.
 
@@ -488,9 +558,6 @@ def install_master_key_with_password(ip, ssh_user='root', ssh_password=''):
         return True, 'skipped'
     if ssh_user != 'root':
         return False, 'Only root SSH username is supported for automatic node setup right now.'
-    if not shutil.which('sshpass'):
-        return False, 'sshpass is not installed on the PanelMaster VPS. Run install_panel.sh/update dependencies first.'
-
     pubkey, err = _ensure_master_ssh_keypair()
     if not pubkey:
         return False, err or 'failed to read master public key'
@@ -501,29 +568,38 @@ def install_master_key_with_password(ip, ssh_user='root', ssh_password=''):
         f"grep -qxF {shlex.quote(pubkey)} ~/.ssh/authorized_keys || "
         f"printf '%s\\n' {shlex.quote(pubkey)} >> ~/.ssh/authorized_keys"
     )
-    env = os.environ.copy()
-    env['SSHPASS'] = ssh_password
-    res = subprocess.run(
-        [
-            'sshpass', '-e', 'ssh',
-            '-o', 'ConnectTimeout=20',
-            '-o', 'StrictHostKeyChecking=no',
-            '-o', 'PreferredAuthentications=password',
-            '-o', 'PubkeyAuthentication=no',
-            f'{ssh_user}@{ip}',
-            remote_cmd
-        ],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=45
-    )
-    if res.returncode != 0:
-        err = (res.stderr or res.stdout or 'password SSH key install failed').strip()
+    ssh_args = [
+        'ssh',
+        '-o', 'ConnectTimeout=20',
+        '-o', 'StrictHostKeyChecking=no',
+        '-o', 'UserKnownHostsFile=/dev/null',
+        '-o', 'PreferredAuthentications=password',
+        '-o', 'PubkeyAuthentication=no',
+        f'{ssh_user}@{ip}',
+        remote_cmd
+    ]
+    if shutil.which('sshpass'):
+        env = os.environ.copy()
+        env['SSHPASS'] = ssh_password
+        res = subprocess.run(
+            ['sshpass', '-e'] + ssh_args,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=45
+        )
+        returncode = res.returncode
+        output = (res.stderr or res.stdout or '').strip()
+    else:
+        returncode, output = _run_password_ssh_command(ssh_args, ssh_password, timeout=45)
+        output = output.strip()
+
+    if returncode != 0:
+        err = output or 'password SSH key install failed'
         return False, err[:500]
 
     verify = subprocess.run(
-        ['ssh', '-o', 'ConnectTimeout=12', '-o', 'StrictHostKeyChecking=no', f'root@{ip}', 'echo ok'],
+        ['ssh', '-o', 'ConnectTimeout=12', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', f'root@{ip}', 'echo ok'],
         capture_output=True,
         text=True,
         timeout=20
