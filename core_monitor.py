@@ -306,7 +306,7 @@ def sync_usage_to_subpanel(db_key, uinfo, node_active_count=0):
         print(f"[usage-sync] user={username} result=exception")
 
 def sync_node_stats_to_subpanel(groups, db):
-    """Push per-group node active user counts to external panel (same as UI)."""
+    """Push per-group node assigned key counts to external panel (same as group UI)."""
     try:
         api_key = _get_sync_api_key()
         url = _build_sync_url("sync-node-stats")
@@ -324,24 +324,18 @@ def sync_node_stats_to_subpanel(groups, db):
             for nid in g_nodes:
                 nip = str(get_target_ip(nid) or "").strip()
                 node_ip_map[nid] = nip
+                nid_norm = str(nid or "").strip().lower()
                 count = 0
-                if nip:
-                    for dk, ui in db.items():
-                        if not isinstance(ui, dict) or ui.get('is_blocked'):
-                            continue
-                        if ui.get('group') != gid:
-                            continue
-                        oips = ui.get('online_on_ips', [])
-                        if isinstance(oips, list) and nip in oips:
-                            count += 1
+                for _, ui in db.items():
+                    if not isinstance(ui, dict):
+                        continue
+                    if str(ui.get('group') or "").strip() != str(gid or "").strip():
+                        continue
+                    if str(ui.get('node') or "").strip().lower() == nid_norm:
+                        count += 1
                 node_counts[nid] = count
 
-            print(f"[node-stats-sync] DEBUG group={gid} node_ips={node_ip_map}")
-            for dk, ui in db.items():
-                if isinstance(ui, dict) and ui.get('group') == gid and not ui.get('is_blocked'):
-                    oips = ui.get('online_on_ips', [])
-                    if oips:
-                        print(f"[node-stats-sync] DEBUG   user={get_display_name(dk, ui)} online_on_ips={oips}")
+            print(f"[node-stats-sync] DEBUG group={gid} node_ips={node_ip_map} key_counts={node_counts}")
 
             payload = {
                 "masterGroupId": gid,
