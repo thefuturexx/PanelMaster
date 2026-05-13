@@ -698,7 +698,7 @@ def api_internal_delete_user():
 
 @api_bp.route('/api/debug/sync-node-stats-preview', methods=['GET'])
 def debug_sync_node_stats_preview():
-    """Show exactly what payload sync-node-stats would send (same logic as group UI key counts)."""
+    """Show exactly what payload sync-node-stats would send (same logic as UI)."""
     from core_monitor import _build_sync_url, _get_sync_api_key, get_target_ip
 
     groups = load_auto_groups()
@@ -728,15 +728,16 @@ def debug_sync_node_stats_preview():
         for nid in g_nodes:
             nip = str(get_target_ip(nid) or "").strip()
             node_info[nid] = {"ip": nip}
-            nid_norm = str(nid or "").strip().lower()
             count = 0
-            for ui in db.values():
-                if not isinstance(ui, dict):
-                    continue
-                if str(ui.get('group') or "").strip() != str(gid or "").strip():
-                    continue
-                if str(ui.get('node') or "").strip().lower() == nid_norm:
-                    count += 1
+            if nip:
+                for ui in db.values():
+                    if not isinstance(ui, dict) or ui.get('is_blocked'):
+                        continue
+                    if ui.get('group') != gid:
+                        continue
+                    oips = ui.get('online_on_ips', [])
+                    if isinstance(oips, list) and nip in oips:
+                        count += 1
             node_counts[nid] = count
 
         result["groups"][gid] = {
