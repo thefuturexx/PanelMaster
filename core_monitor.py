@@ -305,91 +305,8 @@ def sync_usage_to_subpanel(db_key, uinfo, node_active_count=0):
         _set_monitor_status(last_sync_status="exception", last_sync_user=str(username))
         print(f"[usage-sync] user={username} result=exception")
 
-
-def count_db_assigned_node_keys(db, group_id, node_id):
-    """Fallback count from PanelMaster DB when a node cannot be reached."""
-    gid = str(group_id or "").strip()
-    nid_norm = str(node_id or "").strip().lower()
-    count = 0
-    for _, ui in (db or {}).items():
-        if not isinstance(ui, dict):
-            continue
-        if str(ui.get('group') or "").strip() != gid:
-            continue
-        if str(ui.get('node') or "").strip().lower() == nid_norm:
-            count += 1
-    return count
-
-
-def count_actual_node_keys(node_ip):
-    """Return actual key count from a node's Xray config, or None on failure.
-
-    PanelMaster's SS provisioning creates one Shadowsocks inbound per key; older
-    VLESS/VMess layouts keep users under settings.clients.  Count both shapes
-    while ignoring control/API inbounds such as dokodemo-door.
-    """
-    ip = str(node_ip or "").strip()
-    if not ip:
-        return None
-
-    remote_script = r'''
-import json, os
-paths = ["/usr/local/etc/xray/config.json", "/etc/xray/config.json"]
-for path in paths:
-    if not os.path.exists(path):
-        continue
-    with open(path, "r") as fh:
-        data = json.load(fh)
-    total = 0
-    for inbound in data.get("inbounds", []) if isinstance(data, dict) else []:
-        if not isinstance(inbound, dict):
-            continue
-        proto = str(inbound.get("protocol") or "").lower()
-        tag = str(inbound.get("tag") or "").lower()
-        if proto in ("dokodemo-door", "api") or tag in ("api", "dokodemo-door"):
-            continue
-        settings = inbound.get("settings") or {}
-        clients = settings.get("clients")
-        if isinstance(clients, list) and clients:
-            total += len(clients)
-        elif proto == "shadowsocks" and inbound.get("port"):
-            total += 1
-    print(total)
-    raise SystemExit(0)
-raise SystemExit(2)
-'''
-    try:
-        result = subprocess.run(
-            [
-                "ssh",
-                "-o", "BatchMode=yes",
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
-                "-o", "ConnectTimeout=6",
-                f"root@{ip}",
-                "python3 -c " + repr(remote_script),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return None
-        for line in reversed((result.stdout or "").splitlines()):
-            line = line.strip()
-            if line.isdigit():
-                return int(line)
-    except Exception:
-        return None
-    return None
-
 def sync_node_stats_to_subpanel(groups, db):
-    """Push per-group node key counts to external panel.
-
-    Prefer the actual Xray config on each node.  The panel DB can contain stale
-    node ids after group/server renames, but the subpanel card needs the real
-    number of keys currently provisioned on that node.
-    """
+    """Push per-group node assigned key counts to external panel (same as group UI)."""
     try:
         api_key = _get_sync_api_key()
         url = _build_sync_url("sync-node-stats")
@@ -407,10 +324,16 @@ def sync_node_stats_to_subpanel(groups, db):
             for nid in g_nodes:
                 nip = str(get_target_ip(nid) or "").strip()
                 node_ip_map[nid] = nip
-                actual_count = count_actual_node_keys(nip) if nip else None
-                if actual_count is None:
-                    actual_count = count_db_assigned_node_keys(db, gid, nid)
-                node_counts[nid] = actual_count
+                nid_norm = str(nid or "").strip().lower()
+                count = 0
+                for _, ui in db.items():
+                    if not isinstance(ui, dict):
+                        continue
+                    if str(ui.get('group') or "").strip() != str(gid or "").strip():
+                        continue
+                    if str(ui.get('node') or "").strip().lower() == nid_norm:
+                        count += 1
+                node_counts[nid] = count
 
             print(f"[node-stats-sync] DEBUG group={gid} node_ips={node_ip_map} key_counts={node_counts}")
 

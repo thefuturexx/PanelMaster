@@ -698,8 +698,8 @@ def api_internal_delete_user():
 
 @api_bp.route('/api/debug/sync-node-stats-preview', methods=['GET'])
 def debug_sync_node_stats_preview():
-    """Show exactly what payload sync-node-stats would send."""
-    from core_monitor import _build_sync_url, _get_sync_api_key, get_target_ip, count_actual_node_keys, count_db_assigned_node_keys
+    """Show exactly what payload sync-node-stats would send (same logic as group UI key counts)."""
+    from core_monitor import _build_sync_url, _get_sync_api_key, get_target_ip
 
     groups = load_auto_groups()
     with db_lock:
@@ -727,10 +727,17 @@ def debug_sync_node_stats_preview():
         node_counts = {}
         for nid in g_nodes:
             nip = str(get_target_ip(nid) or "").strip()
-            actual_count = count_actual_node_keys(nip) if nip else None
-            fallback_count = count_db_assigned_node_keys(db, gid, nid)
-            node_info[nid] = {"ip": nip, "actual_count": actual_count, "db_fallback_count": fallback_count}
-            node_counts[nid] = actual_count if actual_count is not None else fallback_count
+            node_info[nid] = {"ip": nip}
+            nid_norm = str(nid or "").strip().lower()
+            count = 0
+            for ui in db.values():
+                if not isinstance(ui, dict):
+                    continue
+                if str(ui.get('group') or "").strip() != str(gid or "").strip():
+                    continue
+                if str(ui.get('node') or "").strip().lower() == nid_norm:
+                    count += 1
+            node_counts[nid] = count
 
         result["groups"][gid] = {
             "payload_that_would_be_sent": {
